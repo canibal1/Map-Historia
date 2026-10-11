@@ -69,8 +69,9 @@ test('Senaryo bitiş tarihinde sonuç değerlendirilir ve oyun durur', () => {
 });
 
 test('Yenilgide de kronik ve değerlendirme oluşur', () => {
-  const game = newGame('fall-1453', 'albania');
-  for (const pid of game.provincesOf('albania')) game.transferProvince(pid, 'ottoman', game.warBetween('albania', 'ottoman'));
+  const game = newGame('fall-1453', 'trebizond');
+  game.declareWar('ottoman', 'trebizond');
+  for (const pid of game.provincesOf('trebizond')) game.transferProvince(pid, 'ottoman', game.warBetween('trebizond', 'ottoman'));
   assert.equal(game.state.gameOver.type, 'defeat');
   assert.ok(game.state.ended);
   assert.equal(game.state.ended.alive, false);
@@ -123,8 +124,10 @@ test('Paralı asker insan gücü harcamaz; şenlik yılda bir istikrar verir', (
 });
 
 test('Kazanan yapay zekâ oyuncuya şartlarını dayatır', () => {
-  const game = newGame('fall-1453', 'albania');
-  const war = game.warBetween('albania', 'ottoman');
+  const game = newGame('fall-1453', 'trebizond');
+  game.declareWar('ottoman', 'trebizond');
+  game.state.eventQueue = [];
+  const war = game.warBetween('trebizond', 'ottoman');
   war.captured.ottoman = 6;
   war.start -= 200;
   for (let i = 0; i < 40 && !game.currentEvent(); i++) MH.ai.monthly(game);
@@ -133,7 +136,7 @@ test('Kazanan yapay zekâ oyuncuya şartlarını dayatır', () => {
   assert.equal(ev.eventId, 'ai_peace_demand');
   const gold = game.player.gold;
   game.resolveEvent(0);
-  assert.equal(game.warBetween('albania', 'ottoman'), null);
+  assert.equal(game.warBetween('trebizond', 'ottoman'), null);
   assert.ok(game.player.gold < gold);
 });
 

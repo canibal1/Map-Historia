@@ -126,25 +126,31 @@ button, input, select { font: inherit; color: inherit; }
 #map-wrap { position: relative; overflow: hidden; background: var(--sea-2); }
 #map { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; user-select: none; }
 #map.dragging { cursor: grabbing; }
-#map .hex { stroke: rgba(0, 0, 0, .14); stroke-width: .5; transition: fill .35s; cursor: pointer; }
-#map .hex:hover { filter: brightness(1.2); }
-#map .hex.flash { animation: flash 1.3s ease-out; }
+#map .prov { stroke: rgba(0, 0, 0, .1); stroke-width: .35; transition: fill .35s; cursor: pointer; }
+#map .prov:hover { filter: brightness(1.18); }
+#map .prov.unclaimed { stroke: rgba(80, 60, 20, .12); }
+#map .prov.flash { animation: flash 1.3s ease-out; }
 @keyframes flash { 0% { filter: brightness(2.2) saturate(1.5); } 100% { filter: none; } }
-#map .coast { fill: none; stroke: rgba(210, 230, 255, .35); stroke-width: 1.2; pointer-events: none; }
-#map .borders { fill: none; stroke: rgba(15, 15, 20, .85); stroke-width: 1.4; stroke-linecap: round; pointer-events: none; }
-#map .player-outline { fill: none; stroke: var(--gold-2); stroke-width: 2.4; stroke-linecap: round; pointer-events: none; filter: drop-shadow(0 0 2px rgba(0, 0, 0, .8)); }
-#map .enemy-outline { fill: none; stroke: #ff5a4a; stroke-width: 1.6; stroke-dasharray: 4 3; pointer-events: none; }
-#map .select-outline { fill: none; stroke: #fff; stroke-width: 2.2; stroke-dasharray: 5 3; pointer-events: none; animation: march 1.2s linear infinite; }
+#map .shallow { fill: none; stroke-linejoin: round; stroke-linecap: round; pointer-events: none; }
+#map .shallow-1 { stroke: rgba(120, 190, 235, .14); stroke-width: 14; }
+#map .shallow-2 { stroke: rgba(150, 210, 245, .22); stroke-width: 5; }
+#map .terrain { mix-blend-mode: multiply; opacity: .32; pointer-events: none; }
+#map .coast { fill: none; stroke: rgba(10, 25, 40, .55); stroke-width: .7; pointer-events: none; }
+#map .inner-borders { fill: none; stroke: rgba(0, 0, 0, .16); stroke-width: .35; pointer-events: none; }
+#map .borders { fill: none; stroke: rgba(12, 12, 16, .85); stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+#map .player-outline { fill: none; stroke: var(--gold-2); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+#map .enemy-outline { fill: none; stroke: #ff5a4a; stroke-width: 1.4; stroke-dasharray: 4 3; pointer-events: none; }
+#map .select-outline { fill: none; stroke: #fff; stroke-width: 1.8; stroke-dasharray: 5 3; pointer-events: none; animation: march 1.2s linear infinite; }
 @keyframes march { to { stroke-dashoffset: -16; } }
-#map .war-hatch { pointer-events: none; opacity: .8; }
-#map .capital { fill: #fff; stroke: #111; stroke-width: 1; pointer-events: none; }
+#map .war-hatch { pointer-events: none; opacity: .75; }
+#map .capital { fill: #fff; stroke: #111; stroke-width: .8; pointer-events: none; }
 #map .capital.is-player { fill: var(--gold-2); }
 #map .nation-label {
-  font-family: var(--display); font-weight: 600; text-anchor: middle; dominant-baseline: middle;
-  fill: rgba(20, 20, 25, .85); stroke: rgba(255, 255, 255, .45); stroke-width: .6; paint-order: stroke;
-  pointer-events: none; letter-spacing: .04em;
+  font-family: var(--display); font-weight: 700; text-anchor: middle; dominant-baseline: middle;
+  fill: rgba(255, 255, 255, .93); stroke: rgba(20, 16, 10, .55); stroke-width: .08em; paint-order: stroke;
+  pointer-events: none; letter-spacing: .1em;
 }
-#map .nation-label.is-player { fill: #1a1408; }
+#map .nation-label.is-player { fill: #fff3c4; }
 
 #map .stack { cursor: pointer; }
 #map .stack rect:first-child { stroke: #111; stroke-width: 1; }
@@ -382,3 +388,11 @@ body[data-mode="pick"] .tb-menu #btn-save { display: none; }
   .tabs button { font-size: 12px; }
   .map-controls select { max-width: 130px; }
 }
+
+/* ------------------------------------------------------------ yükleme ve arama */
+.loading { position: fixed; inset: 0; z-index: 80; display: grid; place-content: center; justify-items: center; gap: 14px; background: rgba(8, 12, 20, .72); color: var(--gold-2); font-family: var(--display); letter-spacing: .08em; }
+.spinner { width: 42px; height: 42px; border-radius: 50%; border: 3px solid rgba(217, 180, 91, .25); border-top-color: var(--gold); animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } #map .select-outline { animation: none; } }
+.search { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); }
+.search:focus { outline: 2px solid var(--gold); outline-offset: 1px; }

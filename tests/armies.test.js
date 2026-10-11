@@ -39,37 +39,37 @@ test('Ordu toplamı her zaman ulusun asker sayısına eşitlenir', () => {
 
 test('Düşman orduları yalnızca oyuncuyla savaşta olan uluslar için haritaya çıkar', () => {
   const game = newGame('fall-1453', 'hungary');
-  assert.equal(A().stacksOf(game, 'austria').length, 0);
-  game.declareWar('hungary', 'austria');
+  assert.equal(A().stacksOf(game, 'hre').length, 0);
+  game.declareWar('hungary', 'hre');
   A().ensureStacks(game);
-  assert.ok(A().stacksOf(game, 'austria').length >= 1);
-  assert.ok(game.offerPeace('hungary', 'austria', 'white', true).ok);
+  assert.ok(A().stacksOf(game, 'hre').length >= 1);
+  assert.ok(game.offerPeace('hungary', 'hre', 'white', true).ok);
   A().ensureStacks(game);
-  assert.equal(A().stacksOf(game, 'austria').length, 0, 'barıştan sonra dağılır');
+  assert.equal(A().stacksOf(game, 'hre').length, 0, 'barıştan sonra dağılır');
 });
 
 test('Tarafsız topraklara girilemez; düşman toprağına yürüyüş yolu bulunur', () => {
   const game = newGame('fall-1453', 'hungary');
   const stack = A().stacksOf(game, 'hungary')[0];
-  const austrian = game.nation('austria').capital;
-  assert.equal(A().moveStack(game, stack.id, austrian).ok, false);
-  game.declareWar('hungary', 'austria');
-  const res = A().moveStack(game, stack.id, austrian);
+  const enemyCap = game.nation('hre').capital;
+  assert.equal(A().moveStack(game, stack.id, enemyCap).ok, false);
+  game.declareWar('hungary', 'hre');
+  const res = A().moveStack(game, stack.id, enemyCap);
   assert.ok(res.ok, res.message);
   assert.ok(stack.path.length >= 1);
-  assert.equal(stack.path[stack.path.length - 1], austrian);
+  assert.equal(stack.path[stack.path.length - 1], enemyCap);
   assert.equal(stack.auto, false, 'emir verilen ordu manuel kontrole geçer');
 });
 
 test('Düşman eyaletinde duran ordu kuşatma yapar ve eyaleti alır', () => {
   const game = newGame('fall-1453', 'hungary');
-  game.declareWar('hungary', 'austria');
+  game.declareWar('hungary', 'hre');
   A().ensureStacks(game);
   // Avusturya orduları oyun dışı kalsın: yalnızca kuşatmayı sınıyoruz
   game.state.stacks = game.state.stacks.filter((s) => s.owner === 'hungary');
-  game.nation('austria').army = 0;
+  game.nation('hre').army = 0;
   const stack = A().stacksOf(game, 'hungary')[0];
-  const target = game._frontier('hungary', 'austria').find((p) => p !== game.nation('austria').capital);
+  const target = game._frontier('hungary', 'hre').find((p) => p !== game.nation('hre').capital);
   assert.ok(A().moveStack(game, stack.id, target).ok);
   const days = play(game, 120, () => game.state.owner[target] === 'hungary');
   assert.equal(game.state.owner[target], 'hungary', 'kuşatma sonunda eyalet ele geçer');
@@ -81,14 +81,14 @@ test('Karşılaşan ordular savaşır; güçlü taraf genellikle kazanır, yenil
   for (let seed = 0; seed < 10; seed++) {
     const game = newGame('fall-1453', 'hungary');
     game.state.rng = 77 + seed;
-    game.declareWar('hungary', 'austria');
+    game.declareWar('hungary', 'hre');
     A().ensureStacks(game);
     game.player.army = 80;
-    game.nation('austria').army = 25;
+    game.nation('hre').army = 25;
     A().sync(game, 'hungary');
-    A().sync(game, 'austria');
+    A().sync(game, 'hre');
     const ours = A().stacksOf(game, 'hungary')[0];
-    const theirs = A().stacksOf(game, 'austria')[0];
+    const theirs = A().stacksOf(game, 'hre')[0];
     theirs.prov = ours.prov;
     theirs.auto = false;
     let battle = null;
@@ -96,8 +96,9 @@ test('Karşılaşan ordular savaşır; güçlü taraf genellikle kazanır, yenil
     A().daily(game);
     assert.ok(battle, 'aynı eyaletteki ordular savaşmalı');
     if (battle.winner === 'hungary') wins++;
-    const loser = A().stacksOf(game, battle.loser);
-    for (const s of loser) assert.ok(s.shattered > 0 || s.size === 0);
+    const loserStack = battle.loser === 'hungary' ? ours : theirs;
+    const stillThere = game.state.stacks.includes(loserStack);
+    assert.ok(!stillThere || loserStack.shattered > 0, 'yenilen ordu dağılır ya da teslim olur');
   }
   assert.ok(wins >= 8, `3 kat güçlü ordu 10 savaşın en az 8'ini kazanmalı: ${wins}`);
 });
@@ -113,10 +114,10 @@ test('Otomatik komutadaki ordular oyuncu hiçbir şey yapmadan da savaşı yür�
 
 test('Barıştan sonra yabancı topraktaki ordular sınırın gerisine çekilir', () => {
   const game = newGame('fall-1453', 'hungary');
-  game.declareWar('hungary', 'austria');
+  game.declareWar('hungary', 'hre');
   const stack = A().stacksOf(game, 'hungary')[0];
-  stack.prov = game.nation('austria').capital;
-  game.offerPeace('hungary', 'austria', 'white', true);
+  stack.prov = game.nation('hre').capital;
+  game.offerPeace('hungary', 'hre', 'white', true);
   play(game, 90, () => game.state.owner[stack.prov] === 'hungary');
   assert.equal(game.state.owner[stack.prov], 'hungary');
   assert.equal(stack.returning, false);
@@ -143,15 +144,15 @@ test('Birden çok cephede savaşan yapay zekâ ordusunu oyuncuya karşı cepheyl
 
 test('Kuşatan taraf muharebeyi kazanırsa kuşatma sürer', () => {
   const game = newGame('fall-1453', 'hungary');
-  game.declareWar('hungary', 'austria');
+  game.declareWar('hungary', 'hre');
   A().ensureStacks(game);
   const ours = A().stacksOf(game, 'hungary')[0];
-  const theirs = A().stacksOf(game, 'austria')[0];
-  const prov = game._frontier('hungary', 'austria')[0];
+  const theirs = A().stacksOf(game, 'hre')[0];
+  const prov = game._frontier('hungary', 'hre')[0];
   ours.prov = prov;
   ours.auto = false;
   theirs.auto = false;
-  theirs.prov = game.nation('austria').capital;
+  theirs.prov = game.nation('hre').capital;
   game.state.sieges[prov] = { by: 'hungary', progress: 10, needed: 40 };
   ours.size = game.player.army = 200;
   theirs.prov = prov;

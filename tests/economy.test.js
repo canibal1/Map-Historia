@@ -31,7 +31,7 @@ test('Yapılar yalnızca kendi eyaletine ve yeterli altınla inşa edilir', () =
   game.player.gold = 10;
   assert.equal(game.build('venice', game.player.capital, 'fort').ok, false);
   game.player.gold = 999;
-  assert.equal(game.build('venice', game.nation('milan').capital, 'market').ok, false);
+  assert.equal(game.build('venice', game.nation('papal').capital, 'market').ok, false);
   assert.equal(game.build('venice', game.player.capital, 'palace').ok, false);
 });
 
@@ -69,9 +69,9 @@ test('Fethedilen eyaletin yapıları yeni sahibine geçer, yarım inşaat iptal 
   game.build('hungary', provs[0], 'market');
   finishConstruction(game);
   game.build('hungary', provs[1], 'temple');
-  game.transferProvince(provs[0], 'austria');
-  game.transferProvince(provs[1], 'austria');
-  assert.ok(game.buildingsOf('austria', 'market').includes(provs[0]));
+  game.transferProvince(provs[0], 'hre');
+  game.transferProvince(provs[1], 'hre');
+  assert.ok(game.buildingsOf('hre', 'market').includes(provs[0]));
   assert.equal(game.underConstruction(provs[1]).length, 0);
   finishConstruction(game);
   assert.equal(game.hasBuilding(provs[1], 'temple'), false);
@@ -80,15 +80,15 @@ test('Fethedilen eyaletin yapıları yeni sahibine geçer, yarım inşaat iptal 
 test('Kuşatma altındaki eyalette inşaat yapılamaz', () => {
   const game = newGame('fall-1453', 'hungary');
   game.player.gold = 999;
-  game.state.sieges[game.player.capital] = { by: 'austria', progress: 1, needed: 40 };
+  game.state.sieges[game.player.capital] = { by: 'hre', progress: 1, needed: 40 };
   assert.equal(game.build('hungary', game.player.capital, 'fort').ok, false);
 });
 
 test('Yapay zekâ barışta artan altınını yapılara yatırır', () => {
-  const game = newGame('fall-1453', 'albania');
-  for (const n of game.aliveNations()) if (n.id !== 'albania') n.gold += 600;
+  const game = newGame('fall-1453', 'trebizond');
+  for (const n of game.aliveNations()) if (n.id !== 'trebizond') n.gold += 600;
   for (let i = 0; i < 12; i++) MH.ai.monthly(game);
-  assert.ok(game.state.construction.some((c) => c.owner !== 'albania'), 'en az bir yapay zekâ inşaata başlamalı');
+  assert.ok(game.state.construction.some((c) => c.owner !== 'trebizond'), 'en az bir yapay zekâ inşaata başlamalı');
 });
 
 test('Eyaletlerin dönemine uygun adları vardır', () => {
@@ -97,13 +97,14 @@ test('Eyaletlerin dönemine uygun adları vardır', () => {
   const ist = g1453.nation('byzantium').capital;
   assert.equal(MH.places.nameOf(g1453, ist), 'Konstantinopolis');
   assert.equal(MH.places.nameOf(g1914, g1914.nation('ottoman').capital), 'İstanbul');
-  const names1453 = MH.places.table(1453).city.filter(Boolean);
+  const names1453 = MH.places.table(g1453.grid, 1453).city.filter(Boolean);
   assert.ok(!names1453.includes('Sankt Peterburg'), "1453'te Sankt Peterburg yok");
-  assert.ok(MH.places.table(1914).city.includes('Budapeşte'));
+  assert.ok(MH.places.table(g1914.grid, 1914).city.includes('Budapeşte'));
   for (const g of [g1453, g1914]) {
     for (let pid = 0; pid < g.state.owner.length; pid++) assert.ok(MH.places.nameOf(g, pid).length > 0);
-    const capitals = g.aliveNations().filter((n) => MH.places.isCity(g, n.capital)).length;
-    assert.ok(capitals / g.aliveNations().length > 0.8, 'başkentlerin çoğu bir şehir adı taşımalı');
+    const curated = g.aliveNations().filter((n) => !n.generic);
+    const capitals = curated.filter((n) => MH.places.isCity(g, n.capital)).length;
+    assert.ok(capitals / curated.length > 0.85, 'senaryo uluslarının başkentleri bir şehir adı taşımalı');
   }
 });
 

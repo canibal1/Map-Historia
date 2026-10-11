@@ -72,8 +72,8 @@ User Story'nin *"kendi imparatorluğumu ve hikâyemi yaratabileyim"* kısmı iç
 
   | Yapı | Etki | Maliyet |
   | ---- | ---- | ------- |
-  | 🏪 Pazar | Aylık altın +(0,5 + gelişim × 0,25) | 50 + gelişim × 5 |
-  | ⛺ Kışla | Aylık insan gücü +(300 + gelişim × 100), en fazla insan gücü +5.000 | 55 + gelişim × 2 |
+  | 🏪 Pazar | Aylık altın +(0,5 + gelişim × 0,06) | 40 + gelişim × 2 |
+  | ⛺ Kışla | Aylık insan gücü +(300 + gelişim × 40), en fazla insan gücü +5.000 | 55 + gelişim × 2 |
   | 🏰 Kale | Kuşatma +25 gün, savunan ordu +%15, soyut savaşta direnç; ayda 0,6 altın bakım | 90 |
   | ⛪ Mabet | İstikrar hedefi +1,5 (en fazla +9) | 60 + gelişim × 3 |
 

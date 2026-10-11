@@ -34,8 +34,8 @@
 
   // Eyalet yapıları (AC 2.1 — üretim ve kalkınma kararları)
   const BUILDINGS = {
-    market: { label: 'Pazar', icon: '🏪', days: 120, cost: (dev) => 50 + dev * 5, desc: 'Aylık altın +(0,5 + gelişim × 0,25)' },
-    barracks: { label: 'Kışla', icon: '⛺', days: 120, cost: (dev) => 55 + dev * 2, desc: 'Aylık insan gücü +(300 + gelişim × 100), en fazla insan gücü +5.000' },
+    market: { label: 'Pazar', icon: '🏪', days: 120, cost: (dev) => 40 + dev * 2, desc: 'Aylık altın +(0,5 + gelişim × 0,06)' },
+    barracks: { label: 'Kışla', icon: '⛺', days: 120, cost: (dev) => 55 + dev * 2, desc: 'Aylık insan gücü +(300 + gelişim × 40), en fazla insan gücü +5.000' },
     fort: { label: 'Kale', icon: '🏰', days: 180, cost: () => 90, desc: 'Kuşatma +25 gün, savunan ordu +%15; bakımı ayda 0,6 altın' },
     temple: { label: 'Mabet', icon: '⛪', days: 150, cost: (dev) => 60 + dev * 3, desc: 'İstikrar hedefi +1,5 (en fazla +9)' },
   };
@@ -80,43 +80,35 @@
     return { next, value: ((t ^ (t >>> 14)) >>> 0) / 4294967296 };
   }
 
-  // Basit ikili yığın (Dijkstra için)
-  function heapPush(h, item) {
-    h.push(item);
-    let i = h.length - 1;
-    while (i > 0) {
-      const p = (i - 1) >> 1;
-      if (h[p][0] <= h[i][0]) break;
-      [h[p], h[i]] = [h[i], h[p]];
-      i = p;
-    }
+  const SAVE_VERSION = 2;
+  // Gerçek haritanın eyaletleri eski altıgenlerden ~3 kat büyüktür; gelişim buna göre ölçeklenir
+  const DEV_SCALE = 3;
+
+  /** Ulus kimliği için ASCII kısaltma */
+  function slug(text) {
+    return String(text)
+      .toLowerCase()
+      .replace(/[çćč]/g, 'c').replace(/[ğ]/g, 'g').replace(/[ıíìîï]/g, 'i').replace(/[öóòôõø]/g, 'o')
+      .replace(/[şśš]/g, 's').replace(/[üúùû]/g, 'u').replace(/[áàâäãå]/g, 'a').replace(/[éèêë]/g, 'e')
+      .replace(/[^a-z0-9]+/g, '');
   }
-  function heapPop(h) {
-    const top = h[0];
-    const last = h.pop();
-    if (h.length) {
-      h[0] = last;
-      let i = 0;
-      for (;;) {
-        const l = 2 * i + 1;
-        const r = l + 1;
-        let m = i;
-        if (l < h.length && h[l][0] < h[m][0]) m = l;
-        if (r < h.length && h[r][0] < h[m][0]) m = r;
-        if (m === i) break;
-        [h[m], h[i]] = [h[i], h[m]];
-        i = m;
-      }
-    }
-    return top;
+
+  /** Ada göre kararlı, doygun bir renk */
+  function colorFor(id) {
+    let h = 0;
+    for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    const hue = h % 360;
+    const sat = 38 + (h >> 9) % 22;
+    const light = 48 + (h >> 14) % 16;
+    return 'hsl(' + hue + ',' + sat + '%,' + light + '%)';
   }
 
   class Game {
     constructor(state) {
       this.state = state;
-      this.grid = MH.geo.buildGrid();
-      this.listeners = {};
       this.scenario = MH.getScenario(state.scenarioId);
+      this.grid = MH.geo.gridFor(this.scenario.map);
+      this.listeners = {};
       this._borderCache = null;
     }
 
@@ -124,14 +116,15 @@
     static create(scenarioId) {
       const sc = MH.getScenario(scenarioId);
       if (!sc) throw new Error('Bilinmeyen senaryo: ' + scenarioId);
-      const grid = MH.geo.buildGrid();
+      const grid = MH.geo.gridFor(sc.map);
       const n = grid.provinces.length;
       const state = {
-        version: 1,
+        version: SAVE_VERSION,
         scenarioId,
         day: parseDay(sc.startDate),
         startDay: parseDay(sc.startDate),
         endDay: parseDay(sc.endDate),
+        maxAllies: sc.maxAllies || MAX_ALLIES,
         ended: null,
         goals: [],
         startProvinces: 0,
@@ -141,6 +134,7 @@
         sieges: {},
         buildings: {},
         construction: [],
+        colonizing: [],
         nextStackId: 1,
         rng: sc.seed,
         speed: 0,
@@ -160,17 +154,52 @@
       };
       const game = new Game(state);
 
-      for (const def of sc.nations) {
-        state.order.push(def.id);
-        state.nations[def.id] = {
-          id: def.id,
+      // Harita devletlerini senaryo uluslarıyla eşleştir; eşleşmeyenler otomatik ulus olur
+      const byMatch = new Map();
+      for (const def of sc.nations) for (const m of def.match || []) byMatch.set(m, def);
+      const defs = new Map();
+      const used = new Set(sc.nations.map((d) => d.id));
+      const polityNation = grid.polities.map((pol) => {
+        if (pol.unclaimed) return null;
+        const def = byMatch.get(pol.key) || pol.names.map((x) => byMatch.get(x)).find(Boolean);
+        if (def) {
+          defs.set(def.id, def);
+          return def.id;
+        }
+        let id = slug(pol.key) || 'devlet';
+        if (used.has(id) && !defs.get(id)?.generic) {
+          let k = 2;
+          while (used.has(id + k)) k++;
+          id += k;
+        }
+        used.add(id);
+        if (!defs.has(id)) defs.set(id, { id, name: MH.names ? MH.names.nameFor(pol.key, sc.year) : pol.name, generic: true });
+        return id;
+      });
+      grid.provinces.forEach((p) => { state.owner[p.id] = polityNation[p.polity]; });
+      for (const o of sc.overrides || []) {
+        const pid = grid.nearest(o.point[0], o.point[1]);
+        if (pid >= 0 && defs.has(o.owner)) state.owner[pid] = o.owner;
+      }
+
+      const count = {};
+      for (const o of state.owner) if (o) count[o] = (count[o] || 0) + 1;
+      const modern = sc.year >= 2000;
+      // Senaryo sırası korunur, ardından otomatik uluslar büyükten küçüğe
+      const ids = [...sc.nations.map((d) => d.id).filter((id) => count[id]), ...[...defs.keys()].filter((id) => defs.get(id).generic && count[id]).sort((a, b) => count[b] - count[a])];
+      for (const id of ids) {
+        const def = defs.get(id);
+        const k = count[id];
+        state.order.push(id);
+        state.nations[id] = {
+          id,
           name: def.name,
-          leader: def.leader,
-          color: def.color,
+          leader: def.leader || sc.defaultLeader || 'Hükümdar',
+          color: def.color || colorFor(id),
           capital: -1,
-          gold: def.gold,
-          manpower: def.manpower,
-          army: def.army,
+          gold: def.gold ?? Math.round((modern ? 50 : 30) + k * (modern ? 9 : 6)),
+          manpower: def.manpower ?? Math.round(5 + k * (modern ? 1.6 : 1.1)),
+          army: def.army ?? Math.round(4 + k * (modern ? 1.8 : 1.2)),
           tax: def.tax ?? 20,
           focus: def.focus ?? 'agriculture',
           stability: def.stability ?? 50,
@@ -181,35 +210,59 @@
           alive: true,
           focusChangedDay: -Infinity,
           peakProvinces: 0,
+          generic: !!def.generic,
         };
       }
 
-      game._assignTerritory(sc);
-
-      for (const def of sc.nations) {
-        const nat = state.nations[def.id];
-        for (const pid of game.provincesOf(def.id)) {
-          const base = def.dev ?? 3;
-          state.dev[pid] = Math.max(1, base + Math.floor(game.random() * 3) - 1 + (grid.provinces[pid].coastal ? 1 : 0));
+      // Başkentler ve gelişim
+      for (const id of state.order) {
+        const def = defs.get(id);
+        const nat = state.nations[id];
+        const mine = game.provincesOf(id);
+        const cityTable = MH.places ? MH.places.table(grid, sc.year) : null;
+        const bestCity = cityTable
+          ? mine.filter((p) => cityTable.city[p]).sort((a, b) => MH.places.rank(cityTable.city[a]) - MH.places.rank(cityTable.city[b]))[0]
+          : undefined;
+        if (def.capital) {
+          nat.capital = grid.nearest(def.capital[0], def.capital[1], (p) => state.owner[p.id] === id);
+        } else if (bestCity !== undefined) {
+          nat.capital = bestCity;
+        } else {
+          const cx = mine.reduce((s, p) => s + grid.provinces[p].lon, 0) / mine.length;
+          const cy = mine.reduce((s, p) => s + grid.provinces[p].lat, 0) / mine.length;
+          nat.capital = grid.nearest(cx, cy, (p) => state.owner[p.id] === id);
         }
-        if (nat.capital >= 0) state.dev[nat.capital] += 4;
-        nat.peakProvinces = game.provincesOf(def.id).length;
+        const base = def.dev ?? (modern ? 4 : 3);
+        for (const pid of mine) {
+          const p = grid.provinces[pid];
+          const colony = grid.distanceKm(pid, nat.capital) > 3000; // uzak sömürgeler ve deniz aşırı topraklar
+          let dev = (colony ? Math.min(base, 2) : base) + Math.floor(game.random() * 3) - 1 + (p.coastal ? 1 : 0);
+          if (p.area > 200000) dev -= 1;
+          if (p.area > 400000) dev -= 1;
+          state.dev[pid] = Math.max(1, dev) * DEV_SCALE;
+        }
+        if (nat.capital >= 0) state.dev[nat.capital] += 4 * DEV_SCALE;
+        nat.peakProvinces = mine.length;
       }
 
       for (const id of state.order) {
         for (const other of state.order) if (other !== id) state.nations[id].opinions[other] = 0;
       }
+      const has = (...xs) => xs.every((x) => state.nations[x]);
       for (const [a, b] of sc.alliances) {
+        if (!has(a, b)) continue;
         game._link(a, b, 'allies');
         game._setMutualOpinion(a, b, 60);
       }
       for (const [a, b] of sc.trades) {
+        if (!has(a, b)) continue;
         game._link(a, b, 'trade');
         game._changeOpinion(a, b, 15);
         game._changeOpinion(b, a, 15);
       }
-      for (const [viewer, subject, v] of sc.opinions) state.nations[viewer].opinions[subject] = v;
+      for (const [viewer, subject, v] of sc.opinions) if (has(viewer, subject)) state.nations[viewer].opinions[subject] = v;
       for (const [a, b] of sc.wars) {
+        if (!has(a, b)) continue;
         game._startWar(a, b);
         game._setMutualOpinion(a, b, -80);
       }
@@ -220,13 +273,15 @@
 
     static load(json) {
       const state = typeof json === 'string' ? JSON.parse(json) : json;
-      if (!state || state.version !== 1 || !MH.getScenario(state.scenarioId)) throw new Error('Geçersiz kayıt dosyası');
+      if (!state || !MH.getScenario(state.scenarioId)) throw new Error('Geçersiz kayıt dosyası');
+      if (state.version !== SAVE_VERSION) throw new Error('Bu kayıt eski harita sürümüyle yapılmış; yeni bir oyun başlatın.');
       for (const nat of Object.values(state.nations)) {
         if (nat.focusChangedDay === null) nat.focusChangedDay = -Infinity;
         if (nat.festivalDay === null) nat.festivalDay = -Infinity;
       }
       const sc = MH.getScenario(state.scenarioId);
       state.endDay ??= parseDay(sc.endDate);
+      state.maxAllies ??= sc.maxAllies || MAX_ALLIES;
       state.ended ??= null;
       state.goals ??= [];
       state.beaten ??= [];
@@ -234,9 +289,9 @@
       state.stacks ??= [];
       state.buildings ??= {};
       state.construction ??= [];
+      state.colonizing ??= [];
       state.sieges ??= {};
       state.nextStackId ??= 1;
-      // Eski kayıtlarda 0 (1970) değeri tarihî tarihlerin ilerisinde kalıyordu
       if (state.lastEventDay > state.day) state.lastEventDay = state.day - 30;
       return new Game(state);
     }
@@ -245,67 +300,8 @@
       return JSON.stringify(this.state);
     }
 
-    _assignTerritory(sc) {
-      const { provinces, nearest } = this.grid;
-      const owner = this.state.owner;
-      const cost = new Array(provinces.length).fill(Infinity);
-      const heap = [];
-      const taken = new Set();
-
-      const nearestFree = (lon, lat) => {
-        let pid = nearest(lon, lat);
-        if (!taken.has(pid)) return pid;
-        const queue = [pid];
-        const seen = new Set(queue);
-        while (queue.length) {
-          const cur = queue.shift();
-          if (!taken.has(cur)) return cur;
-          for (const nb of provinces[cur].neighbors) if (!seen.has(nb)) { seen.add(nb); queue.push(nb); }
-        }
-        return pid;
-      };
-
-      for (const def of sc.nations) {
-        const points = [def.capital, ...(def.seeds || [])];
-        points.forEach((pt, i) => {
-          const pid = nearestFree(pt[0], pt[1]);
-          if (taken.has(pid)) return;
-          taken.add(pid);
-          owner[pid] = def.id;
-          cost[pid] = 0;
-          if (i === 0) this.state.nations[def.id].capital = pid;
-          heapPush(heap, [0, pid, def.id]);
-        });
-      }
-
-      const weight = Object.fromEntries(sc.nations.map((d) => [d.id, d.weight || 1]));
-      while (heap.length) {
-        const [c, pid, nid] = heapPop(heap);
-        if (c > cost[pid] || owner[pid] !== nid) continue;
-        const prov = provinces[pid];
-        const step = (nb, mult) => {
-          const nc = c + (mult * (1 + 0.35 * this.random())) / weight[nid];
-          if (nc < cost[nb]) {
-            cost[nb] = nc;
-            owner[nb] = nid;
-            heapPush(heap, [nc, nb, nid]);
-          }
-        };
-        for (const nb of prov.neighbors) step(nb, 1);
-        for (const nb of prov.straits) step(nb, 4);
-      }
-      // Hiçbir tohuma bağlanamayan adalar en yakın eyaletin sahibine verilir
-      for (const prov of provinces) {
-        if (owner[prov.id]) continue;
-        let best = null;
-        let bestD = Infinity;
-        for (const other of provinces) {
-          if (!owner[other.id]) continue;
-          const d = (other.x - prov.x) ** 2 + (other.y - prov.y) ** 2;
-          if (d < bestD) { bestD = d; best = owner[other.id]; }
-        }
-        owner[prov.id] = best;
-      }
+    maxAllies() {
+      return this.state.maxAllies || MAX_ALLIES;
     }
 
     // ------------------------------------------------------------------ yardımcılar
@@ -465,13 +461,13 @@
       const nat = this.state.nations[id];
       const dev = this.totalDev(id);
       const stabMod = 0.6 + nat.stability / 125;
-      let tax = dev * (nat.tax / 100) * 0.4 * stabMod;
+      let tax = dev * (nat.tax / 100) * 0.5 * stabMod;
       if (nat.focus === 'industry') tax *= 1.15;
       if (nat.stability < 20) tax *= 0.75;
-      let trade = nat.trade.filter((t) => this.state.nations[t]?.alive).length * (2 + dev * 0.025);
+      let trade = nat.trade.filter((t) => this.state.nations[t]?.alive).length * (2 + Math.sqrt(dev) * 0.6);
       if (nat.focus === 'trade') trade *= 1.6;
       const markets = this.buildingsOf(id, 'market');
-      const buildings = markets.reduce((s, p) => s + 0.5 + this.state.dev[p] * 0.25, 0);
+      const buildings = markets.reduce((s, p) => s + 0.5 + this.state.dev[p] * 0.06, 0);
       const upkeep = nat.army * UPKEEP + this.buildingsOf(id, 'fort').length * FORT_UPKEEP;
       return {
         tax: round1(tax),
@@ -522,6 +518,62 @@
       return this._result(true, where + ': ' + def.label + ' inşaatı başladı (' + def.days + ' gün).', [['Altın', -cost], [def.desc, null]]);
     }
 
+    // ------------------------------------------------------------------ kolonileştirme
+    /** Sahipsiz bir eyalet ulusun topraklarına komşu mu (kara ya da dar boğaz)? */
+    adjacentToOwn(id, pid) {
+      const p = this.grid.provinces[pid];
+      const owner = this.state.owner;
+      return p.neighbors.some((nb) => owner[nb] === id) || p.straits.some((nb) => owner[nb] === id);
+    }
+
+    colonizeInfo(id, pid) {
+      const p = this.grid.provinces[pid];
+      const overseas = !this.adjacentToOwn(id, pid);
+      const cost = Math.round((40 + Math.min(110, p.area / 4000)) * (overseas ? 2 : 1));
+      return { overseas, cost, days: overseas ? 240 : 120 };
+    }
+
+    canColonize(id, pid) {
+      if (this.state.owner[pid] !== null) return 'Bu toprakların zaten bir sahibi var.';
+      if (this.state.colonizing.some((c) => c.pid === pid)) return 'Bu topraklara zaten yerleşiliyor.';
+      const info = this.colonizeInfo(id, pid);
+      if (info.overseas) {
+        if (!this.grid.provinces[pid].coastal) return 'Okyanus aşırı koloni yalnızca kıyı topraklarında kurulabilir.';
+        if (!this.provincesOf(id).some((x) => this.grid.provinces[x].coastal)) return 'Okyanus aşırı koloni için bir kıyınız olmalı.';
+      }
+      if (this.state.colonizing.filter((c) => c.owner === id).length >= 3) return 'Aynı anda en fazla 3 koloni kurulabilir.';
+      if (this.state.nations[id].gold < info.cost) return 'Koloni için ' + info.cost + ' altın gerekli.';
+      return null;
+    }
+
+    colonize(id, pid) {
+      const err = this.canColonize(id, pid);
+      if (err) return this._result(false, err);
+      const info = this.colonizeInfo(id, pid);
+      const nat = this.state.nations[id];
+      nat.gold = round1(nat.gold - info.cost);
+      this.state.colonizing.push({ pid, owner: id, done: this.state.day + info.days });
+      const where = MH.places ? MH.places.nameOf(this, pid) : 'Sahipsiz topraklar';
+      if (id === this.state.playerId) this.addLog('🏕️ ' + where + ': koloni kuruluyor (' + info.days + ' gün).', 'info', [id]);
+      this.emit('buildings', { pid });
+      return this._result(true, where + ' için yerleşimciler yola çıktı (' + info.days + ' gün).', [['Altın', -info.cost], [info.overseas ? 'Okyanus aşırı koloni' : 'Komşu topraklar', null]]);
+    }
+
+    _progressColonies() {
+      const done = this.state.colonizing.filter((c) => c.done <= this.state.day);
+      if (!done.length) return;
+      this.state.colonizing = this.state.colonizing.filter((c) => c.done > this.state.day);
+      for (const c of done) {
+        if (this.state.owner[c.pid] !== null || !this.state.nations[c.owner]?.alive) continue;
+        this.state.dev[c.pid] = (1 + (this.grid.provinces[c.pid].coastal ? 1 : 0)) * DEV_SCALE;
+        this.transferProvince(c.pid, c.owner);
+        if (c.owner === this.state.playerId) {
+          this.addLog('🏕️ Yeni koloni: ' + (MH.places ? MH.places.nameOf(this, c.pid) : 'eyalet') + '.', 'good', [c.owner]);
+          this.emit('colony', c);
+        }
+      }
+    }
+
     _progressConstruction() {
       const done = this.state.construction.filter((c) => c.done <= this.state.day);
       if (!done.length) return;
@@ -542,7 +594,7 @@
       let g = this.totalDev(id) * 0.05;
       if (nat.focus === 'agriculture') g *= 1.3;
       if (nat.focus === 'military') g *= 1.15;
-      for (const p of this.buildingsOf(id, 'barracks')) g += 0.3 + this.state.dev[p] * 0.1;
+      for (const p of this.buildingsOf(id, 'barracks')) g += 0.3 + this.state.dev[p] * 0.04;
       return round1(g);
     }
 
@@ -636,6 +688,7 @@
       this._dailyCombat();
       MH.armies?.daily(this);
       this._progressConstruction();
+      this._progressColonies();
       const { d } = dayToDate(this.state.day);
       if (d === 1) this._monthly();
       MH.events?.checkScheduled(this);
@@ -815,8 +868,8 @@
       if (from === to) return this._result(false, 'Geçersiz hedef.');
       if (this.isAllied(from, to)) return this._result(false, 'Zaten müttefiksiniz.');
       if (this.warBetween(from, to)) return this._result(false, 'Önce barış yapmalısınız.');
-      if (a.allies.length >= MAX_ALLIES) return this._result(false, 'En fazla ' + MAX_ALLIES + ' müttefikiniz olabilir.');
-      if (b.allies.length >= MAX_ALLIES) return this._result(false, b.name + ' daha fazla ittifak kuramıyor.');
+      if (a.allies.length >= this.maxAllies()) return this._result(false, 'En fazla ' + this.maxAllies() + ' müttefikiniz olabilir.');
+      if (b.allies.length >= this.maxAllies()) return this._result(false, b.name + ' daha fazla ittifak kuramıyor.');
       const enemiesOfB = this.enemiesOf(to);
       if (b.allies.some((x) => this.warBetween(x, from))) return this._result(false, b.name + ' müttefikleriyle savaştığınız için reddetti.');
       const op = this.opinion(to, from);
@@ -1113,6 +1166,7 @@
       this.state.owner[pid] = newOwner;
       // Yapılar yeni sahibine geçer; süren inşaatlar ise yarım kalır
       this.state.construction = this.state.construction.filter((c) => c.pid !== pid);
+      this.state.colonizing = this.state.colonizing.filter((c) => c.pid !== pid);
       const W = this.state.nations[newOwner];
       W.peakProvinces = Math.max(W.peakProvinces, this.provincesOf(newOwner).length);
       if (war) war.captured[newOwner] = (war.captured[newOwner] || 0) + 1;
@@ -1272,5 +1326,5 @@
   MH.PEACE_TYPES = PEACE_TYPES;
   MH.STANCES = STANCES;
   MH.BUILDINGS = BUILDINGS;
-  MH.util = { clamp, round1, parseDay, dayToDate, formatDay, pairKey, MONTHS, SPEEDS };
+  MH.util = { clamp, round1, parseDay, dayToDate, formatDay, pairKey, MONTHS, SPEEDS, slug };
 })((globalThis.MH = globalThis.MH || {}));

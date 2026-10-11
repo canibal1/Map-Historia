@@ -1,6 +1,8 @@
 'use strict';
 // Tarayıcı betiklerini Node ortamına yükler (globalThis.MH)
-for (const f of ['geo', 'places', 'scenarios', 'engine', 'ai', 'events', 'goals', 'armies']) require('../js/' + f + '.js');
+for (const f of ['geo', 'names', 'places', 'scenarios', 'engine', 'ai', 'events', 'goals', 'armies']) require('../js/' + f + '.js');
+// Harita verileri (tarayıcıda senaryo seçilince yüklenir)
+for (const m of ['hb1400', 'hb1815', 'hb1914', 'modern']) require('../data/map-' + m + '.js');
 
 const MH = globalThis.MH;
 

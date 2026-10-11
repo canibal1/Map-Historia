@@ -98,27 +98,54 @@
       }
     }
 
-    startScenario(id) {
+    /** Senaryonun harita verisini yükler (ilk açılışta birkaç saniye sürebilir) */
+    async _loadMap(scenarioId) {
+      const sc = MH.getScenario(scenarioId);
+      if (!sc) throw new Error('Bilinmeyen senaryo');
+      if (MH.MAPDATA?.[sc.map]) return;
+      const box = $('#loading');
+      box.hidden = false;
+      box.querySelector('span').textContent = sc.year + ' haritası yükleniyor…';
+      try {
+        await MH.geo.load(sc.map);
+      } finally {
+        box.hidden = true;
+      }
+    }
+
+    async startScenario(id) {
+      try {
+        await this._loadMap(id);
+      } catch (err) {
+        this.toast('Harita yüklenemedi', [[err.message, null]], 'bad');
+        return;
+      }
       this._setGame(MH.Game.create(id));
       this.mode = 'pick';
       this.selected = null;
+      this.pickFilter = '';
       this._enterGameScreen();
       this.renderPick();
     }
 
-    continueSaved(json = storage.get(SAVE_KEY)) {
+    async continueSaved(json = storage.get(SAVE_KEY)) {
+      let game;
       try {
-        this._setGame(MH.Game.load(json));
+        const st = JSON.parse(json);
+        await this._loadMap(st.scenarioId);
+        game = MH.Game.load(st);
       } catch (err) {
-        this.toast('Kayıt yüklenemedi: ' + err.message, [], 'bad');
+        this.toast('Kayıt yüklenemedi', [[err.message, null]], 'bad');
         return;
       }
+      this._setGame(game);
       this._enterGameScreen();
       this.startPlay(true);
     }
 
     _setGame(game) {
       this.game = game;
+      this.map?.destroy();
       const svg = $('#map');
       this.map = new MH.MapView(svg, game, {
         onClick: (pid, owner) => this.onMapClick(pid, owner),
@@ -180,7 +207,10 @@
       $('#tb-date').textContent = MH.util.formatDay(g.state.day);
       this.renderSpeed();
 
-      const nations = g.aliveNations().sort((a, b) => g.provincesOf(b.id).length - g.provincesOf(a.id).length);
+      const q = (this.pickFilter || '').toLocaleLowerCase('tr');
+      const nations = g.aliveNations()
+        .filter((n) => !q || n.name.toLocaleLowerCase('tr').includes(q) || n.leader.toLocaleLowerCase('tr').includes(q))
+        .sort((a, b) => (a.generic - b.generic) || g.provincesOf(b.id).length - g.provincesOf(a.id).length);
       const sel = this.selected ? g.summary(this.selected) : null;
       $('#pick-panel').innerHTML = `
         <div class="panel-head">
@@ -188,7 +218,8 @@
           <h2>${g.scenario.year} · ${esc(g.scenario.title)}</h2>
         </div>
         ${sel ? this._summaryHtml(sel, true, this._goalsHtml(MH.goals.goalsFor(g, sel.id), false)) : '<p class="muted pad">Kontrol etmek istediğiniz ülkeyi seçin. Büyük güçler daha kolay, küçük devletler daha zorlu bir başlangıç sunar.</p>'}
-        <h3 class="list-title">Uluslar ve liderler</h3>
+        <h3 class="list-title">Uluslar ve liderler <small class="muted">(${g.aliveNations().length})</small></h3>
+        <div class="pad"><input type="search" id="pick-search" class="search" placeholder="Ülke ya da lider ara…" value="${esc(this.pickFilter || '')}" aria-label="Ülke ara"></div>
         <ul class="nation-list">
           ${nations.map((n) => `
             <li class="${n.id === this.selected ? 'active' : ''}" data-id="${n.id}" tabindex="0">
@@ -198,6 +229,15 @@
             </li>`).join('')}
         </ul>`;
       $('#pick-back').addEventListener('click', () => this.showMenu());
+      const search = $('#pick-search');
+      search.addEventListener('input', () => {
+        this.pickFilter = search.value;
+        const pos = search.selectionStart;
+        this.renderPick();
+        const again = $('#pick-search');
+        again.focus();
+        again.setSelectionRange(pos, pos);
+      });
       $('#pick-start')?.addEventListener('click', () => this.startPlay());
       $('#pick-panel').querySelectorAll('.nation-list li').forEach((li) => {
         const go = () => this.pickNation(li.dataset.id, true);
@@ -389,8 +429,9 @@
       const g = this.game;
       const ended = g.state.ended && !g.state.gameOver
         ? `<button class="btn wide" data-act="showEnding">📜 Senaryo sonucunu yeniden gör</button>` : '';
-      const prov = this.provinceSel !== undefined && this.provinceSel !== null && g.state.owner[this.provinceSel] === g.state.playerId
-        ? this._provinceHtml(this.provinceSel, true) : '';
+      const sel = this.provinceSel;
+      const prov = sel !== undefined && sel !== null && (g.state.owner[sel] === g.state.playerId || g.state.owner[sel] === null)
+        ? this._provinceHtml(sel, true) : '';
       return prov + this._summaryHtml(g.summary(g.state.playerId), false, this._goalsHtml(g.state.goals, true) + ended) +
         `<p class="muted pad small">İpucu: Kendi eyaletinize tıklayarak yapı inşa edin; başka bir ülkeye tıklayarak diplomasi ekranını açın. "Diplomatik" harita modu komşularınızın tutumunu gösterir.</p>`;
     }
@@ -448,6 +489,24 @@
               <button class="btn tiny ghost" data-act="cancelTrade" data-target="${t}">İptal et</button></li>`).join('')}</ul>`
             : '<p class="muted small">Henüz ticaret anlaşmanız yok. Haritada bir ülke seçip Diplomasi sekmesinden önerin.</p>'}
         </section>`;
+    }
+
+    _unclaimedHtml(pid) {
+      const g = this.game;
+      const me = g.state.playerId;
+      const p = g.grid.provinces[pid];
+      const info = g.colonizeInfo(me, pid);
+      const err = g.canColonize(me, pid);
+      const busy = g.state.colonizing.find((c) => c.pid === pid);
+      return `<section class="card province">
+        <div class="prov-head"><div><h3>🏕️ ${esc(MH.places.nameOf(g, pid))}</h3>
+          <p class="muted small">Sahipsiz topraklar · ${Math.round(p.area).toLocaleString('tr-TR')} km²${p.coastal ? ' · ⚓ Kıyı' : ''}</p></div>
+          <button class="btn tiny ghost" data-act="closeProvince" aria-label="Kapat">✕</button></div>
+        <p class="small">Bu topraklarda göçebe topluluklar ve küçük kabileler yaşıyor. Yerleşimci göndererek ülkenize katabilirsiniz.</p>
+        ${busy ? `<p class="tone-warn small">${esc(g.nation(busy.owner).name)} buraya yerleşiyor: ${busy.done - g.state.day} gün</p>` : `
+        <div class="btn-row"><button class="btn primary" data-act="colonize" data-pid="${pid}" ${err ? 'disabled' : ''}>🏕️ Kolonileştir · ${info.cost} altın · ${info.days} gün</button></div>
+        ${err ? `<p class="muted small">${esc(err)}</p>` : `<p class="muted small">${info.overseas ? 'Okyanus aşırı koloni: maliyet ve süre iki katı.' : 'Sınırınıza komşu topraklar.'}</p>`}`}
+      </section>`;
     }
 
     _buildingsSummaryHtml() {
@@ -669,6 +728,7 @@
         case 'peace': res = g.offerPeace(me, t, data.type); break;
         case 'stance': res = g.setWarStance(me, t, data.stance); break;
         case 'build': res = g.build(me, Number(data.pid), data.type); break;
+        case 'colonize': res = g.colonize(me, Number(data.pid)); break;
         case 'closeProvince': this.provinceSel = null; this.renderSide(); return;
         case 'selectStack': this.selectStack(Number(data.stack), true); return;
         case 'splitStack': res = MH.armies.splitStack(g, Number(data.stack)); break;
@@ -737,7 +797,7 @@
 
     // ============================================================ harita etkileşimi
     onMapClick(pid, owner) {
-      if (!owner) return;
+      if (!owner && this.mode !== 'play') return;
       if (this.selectedStack && !MH.armies.stackById(this.game, this.selectedStack)) this.selectStack(null);
       if (this.mode === 'play' && this.selectedStack) {
         const res = MH.armies.moveStack(this.game, this.selectedStack, pid);
@@ -752,7 +812,7 @@
       }
       if (this.mode !== 'play') return;
       this.provinceSel = pid;
-      if (owner === this.game.state.playerId) {
+      if (!owner || owner === this.game.state.playerId) {
         this.target = null;
         this.map.select(null);
         this.tab = 'overview';
@@ -765,6 +825,7 @@
     _provinceHtml(pid, editable) {
       const g = this.game;
       const owner = g.state.owner[pid];
+      if (!owner) return this._unclaimedHtml(pid);
       const nat = g.nation(owner);
       const built = g.state.buildings[pid] || [];
       const building = g.underConstruction(pid);
@@ -891,8 +952,14 @@
 
     onMapHover(pid, owner, e) {
       const tip = $('#map-tooltip');
-      if (pid === null || !owner) {
+      if (pid === null) {
         tip.hidden = true;
+        return;
+      }
+      if (!owner) {
+        const g = this.game;
+        tip.innerHTML = `<b>🏕️ ${esc(MH.places.nameOf(g, pid))}</b><div class="muted">Sahipsiz topraklar</div>${this.mode === 'play' ? '<div class="tone-info">Tıkla: kolonileştir</div>' : ''}`;
+        this._placeTip(e);
         return;
       }
       const g = this.game;

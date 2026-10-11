@@ -13,6 +13,7 @@
       if (nat.id === pid) continue;
       recruit(game, nat);
       invest(game, nat);
+      colonize(game, nat);
       seekPeace(game, nat);
       if (game.random() < 0.04) considerWar(game, nat);
       if (game.random() < 0.04) seekFriends(game, nat);
@@ -33,6 +34,31 @@
     if (game.warsOf(nat.id).length && nat.manpower < 5 && nat.gold > 250 && nat.army < cap) game.hireMercenaries(nat.id, 5);
     if (nat.stability < 40 && nat.gold > game.festivalCost(nat.id) + 100) game.holdFestival(nat.id);
     if (game.budget(nat.id).total < 0 && nat.gold < 50 && nat.army > 10) game.disband(nat.id, 5);
+  }
+
+  /** Sahipsiz topraklara yerleşir: önce komşu topraklar, zenginse okyanus ötesi */
+  function colonize(game, nat) {
+    if (nat.gold < 120 || game.random() > 0.15) return;
+    if (game.state.colonizing.some((c) => c.owner === nat.id)) return;
+    const owner = game.state.owner;
+    const near = new Set();
+    for (const pid of game.provincesOf(nat.id)) {
+      const p = game.grid.provinces[pid];
+      for (const nb of p.neighbors.concat(p.straits)) if (owner[nb] === null) near.add(nb);
+    }
+    let target = near.size ? game.pick([...near]) : null;
+    if (target === null && nat.gold > 350 && game.random() < 0.3) {
+      const cap = nat.capital;
+      let best = null;
+      let bestD = Infinity;
+      owner.forEach((o, pid) => {
+        if (o !== null || !game.grid.provinces[pid].coastal) return;
+        const d = game.grid.distanceKm(cap, pid) * (0.7 + game.random() * 0.6);
+        if (d < bestD) { bestD = d; best = pid; }
+      });
+      target = best;
+    }
+    if (target !== null && !game.canColonize(nat.id, target)) game.colonize(nat.id, target);
   }
 
   /** Barış zamanında artan altını yapılara yatırır */
@@ -122,7 +148,7 @@
     const mine = game.opinion(nat.id, o.id);
     if (o.id === pid) {
       const pending = game.state.eventQueue.some((e) => e.eventId === 'ai_alliance_offer');
-      if (!pending && mine >= 60 && !game.isAllied(nat.id, pid) && nat.allies.length < 4 && o.allies.length < 4 && !game.enemiesOf(nat.id).some((e) => game.isAllied(e, pid))) {
+      if (!pending && mine >= 60 && !game.isAllied(nat.id, pid) && nat.allies.length < game.maxAllies() && o.allies.length < game.maxAllies() && !game.enemiesOf(nat.id).some((e) => game.isAllied(e, pid))) {
         game.queueEvent('ai_alliance_offer', pid, { target: nat.id });
       }
       return;

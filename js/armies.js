@@ -543,7 +543,7 @@
   function siegeNeeded(game, prov) {
     const owner = game.state.owner[prov];
     const nat = game.nation(owner);
-    let days = 12 + game.state.dev[prov] * 2;
+    let days = 12 + game.state.dev[prov] * 0.8;
     if (nat.capital === prov) days += 25;
     if (game.provincesOf(owner).length === 1) days += 20;
     if (game.hasBuilding(prov, 'fort')) days += 25;
@@ -560,7 +560,7 @@
       const enemyHere = st.stacks.some((x) => x.prov === s.prov && x.owner === o && !x.shattered);
       if (enemyHere) continue;
       // Büyük ordu daha hızlı kuşatır, ama surlar bir sınırın altına indirilemez
-      const rate = Math.max(0.25, Math.min(1.2, s.size / (8 + st.dev[s.prov] * 2)));
+      const rate = Math.max(0.25, Math.min(1.2, s.size / (8 + st.dev[s.prov] * 0.8)));
       const cur = active.get(s.prov) || { by: s.owner, rate: 0 };
       cur.rate += rate;
       active.set(s.prov, cur);

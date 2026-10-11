@@ -23,7 +23,11 @@ test('AC 1.1 — farklı tarihsel dönemlere ait birden çok senaryo seçilebili
 test('AC 1.2 — seçilen dönemin haritasında her ülke kontrol edilebilir', () => {
   for (const sc of MH.SCENARIOS) {
     const game = MH.Game.create(sc.id);
-    assert.ok(game.state.owner.every(Boolean), sc.id + ': sahipsiz eyalet olmamalı');
+    // Eyaletler ya bir ulusa aittir ya da (kabile toprakları gibi) sahipsizdir
+    assert.ok(game.state.owner.every((o) => o === null || game.nation(o)?.alive), sc.id + ': geçersiz eyalet sahibi');
+    const owned = game.state.owner.filter(Boolean).length / game.state.owner.length;
+    assert.ok(owned > 0.55, sc.id + ': haritanın çoğu ulusların elinde olmalı (' + owned.toFixed(2) + ')');
+    assert.ok(game.aliveNations().length >= 70, sc.id + ': dünya ölçeğinde onlarca ulus');
     for (const def of sc.nations) {
       const nat = game.nation(def.id);
       assert.ok(game.provincesOf(def.id).length >= 1, def.id + ' en az bir eyalete sahip olmalı');
@@ -85,7 +89,8 @@ test('AC 2.1 — üretim odağı değiştirilebilir, bekleme süresi uygulanır'
 
 test('AC 2.1 — ticaret anlaşmaları gelir sağlar', () => {
   const game = newGame('fall-1453', 'venice');
-  assert.equal(game.proposeTrade('venice', 'milan').ok, false, 'rakip Milano (ilişki −40) reddeder');
+  game.nation('papal').opinions.venice = -40;
+  assert.equal(game.proposeTrade('venice', 'papal').ok, false, 'ilişkisi kötü ülke (−40) reddeder');
   const before = game.budget('venice').total;
   const res = game.proposeTrade('venice', 'hungary');
   assert.ok(res.ok, res.message);
@@ -130,22 +135,22 @@ test('AC 2.2 — barış antlaşması savaşı bitirir ve ateşkes başlatır', 
 });
 
 test('AC 2.2 — tazminat ancak savaş kazanılıyorsa alınabilir', () => {
-  const game = newGame('fall-1453', 'ottoman');
-  const war = game.warBetween('ottoman', 'albania');
-  assert.equal(game.offerPeace('ottoman', 'albania', 'demand').ok, false);
-  war.captured.ottoman = 5;
+  const game = newGame('fall-1453', 'france');
+  const war = game.warBetween('france', 'england');
+  assert.equal(game.offerPeace('france', 'england', 'demand').ok, false);
+  war.captured.france = 5;
   const gold = game.player.gold;
-  const res = game.offerPeace('ottoman', 'albania', 'demand');
+  const res = game.offerPeace('france', 'england', 'demand');
   assert.ok(res.ok, res.message);
   assert.ok(game.player.gold > gold);
 });
 
 test('AC 2.3 — savaş ilanı iç istikrarı ve komşuların tutumunu kötüleştirir', () => {
   const game = newGame('fall-1453', 'hungary');
-  const neighbors = game.neighborsOf('hungary').filter((n) => n !== 'austria');
+  const neighbors = game.neighborsOf('hungary').filter((n) => n !== 'hre');
   const before = Object.fromEntries(neighbors.map((n) => [n, game.opinion(n, 'hungary')]));
   const stab = game.player.stability;
-  const res = game.declareWar('hungary', 'austria');
+  const res = game.declareWar('hungary', 'hre');
   assert.ok(res.ok);
   assert.ok(game.player.stability < stab, 'istikrar düşer');
   for (const n of neighbors) assert.ok(game.opinion(n, 'hungary') < before[n], n + ' tutumu kötüleşmeli');
@@ -195,10 +200,11 @@ test('AC 3.2 — fetihler haritayı anında günceller', () => {
   const game = newGame('fall-1453', 'ottoman');
   const changes = [];
   game.on('province', (e) => changes.push(e));
-  const target = game.provincesOf('albania')[0];
-  game.transferProvince(target, 'ottoman', game.warBetween('ottoman', 'albania'));
+  game.declareWar('ottoman', 'byzantium');
+  const target = game.provincesOf('byzantium')[0];
+  game.transferProvince(target, 'ottoman', game.warBetween('ottoman', 'byzantium'));
   assert.equal(game.state.owner[target], 'ottoman');
-  assert.deepEqual(changes[0], { id: target, from: 'albania', to: 'ottoman' });
+  assert.deepEqual(changes.at(-1), { id: target, from: 'byzantium', to: 'ottoman' });
   assert.ok(game.borderPairs().length > 0, 'sınırlar yeniden hesaplanır');
 });
 

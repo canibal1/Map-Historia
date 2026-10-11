@@ -62,6 +62,73 @@
     ['Turku', 22.27, 60.45], ['Helsinki', 24.94, 60.17, { from: 1550 }], ['Malmö', 13.0, 55.6], ['Aarhus', 10.2, 56.15],
     ['Stavanger', 5.73, 58.97], ['Kalmar', 16.36, 56.66], ['Pskov', 28.33, 57.82], ['Vologda', 39.89, 59.22],
     ['Kursk', 36.19, 51.73], ['Dnipro', 35.04, 48.46, { from: 1776 }], ['Astrahan', 46.0, 46.35],
+    // Orta Doğu ve Orta Asya
+    ['Bağdat', 44.36, 33.31], ['Basra', 47.78, 30.51], ['Mekke', 39.83, 21.42], ['Medine', 39.61, 24.47], ['Riyad', 46.72, 24.71],
+    ['Sana', 44.21, 15.35], ['Aden', 45.03, 12.79], ['Maskat', 58.41, 23.59], ['Kuveyt', 47.98, 29.37], ['Doha', 51.53, 25.29, { from: 1825 }],
+    ['Dubai', 55.27, 25.2, { from: 1833 }], ['Tahran', 51.39, 35.69], ['İsfahan', 51.67, 32.65], ['Şiraz', 52.54, 29.59], ['Meşhed', 59.6, 36.3],
+    ['Herat', 62.2, 34.35], ['Kabil', 69.17, 34.53], ['Kandahar', 65.7, 31.61], ['Semerkant', 66.96, 39.65], ['Buhara', 64.42, 39.77],
+    ['Taşkent', 69.24, 41.3], ['Hive', 60.36, 41.38], ['Merv', 61.83, 37.6], ['Bakü', 49.87, 40.41], ['Erivan', 44.51, 40.18],
+    ['Amman', 35.93, 31.95, { from: 1878 }], ['Tel Aviv', 34.78, 32.08, { from: 1909 }], ['Gazze', 34.47, 31.5], ['Almatı', 76.9, 43.24, { from: 1854 }], ['Astana', 71.43, 51.13, { from: 1830 }],
+    ['Bişkek', 74.59, 42.87, { from: 1825 }], ['Duşanbe', 68.77, 38.56, { from: 1900 }], ['Aşkabat', 58.38, 37.95, { from: 1881 }],
+    ['Orenburg', 55.1, 51.77, { from: 1743 }], ['Kazan', 49.11, 55.8], ['Samara', 50.1, 53.2, { from: 1586 }], ['Perm', 56.25, 58.01, { from: 1723 }],
+    ['Yekaterinburg', 60.6, 56.84, { from: 1723 }], ['Omsk', 73.37, 54.99, { from: 1716 }], ['Novosibirsk', 82.92, 55.03, { from: 1893 }],
+    ['Tobolsk', 68.25, 58.2, { from: 1587 }], ['Tomsk', 84.95, 56.48, { from: 1604 }], ['Krasnoyarsk', 92.87, 56.01, { from: 1628 }],
+    ['İrkutsk', 104.3, 52.29, { from: 1661 }], ['Yakutsk', 129.73, 62.03, { from: 1632 }], ['Vladivostok', 131.89, 43.12, { from: 1860 }],
+    ['Habarovsk', 135.07, 48.48, { from: 1858 }], ['Magadan', 150.8, 59.57, { from: 1929 }], ['Arhangelsk', 40.52, 64.54, { from: 1584 }],
+    ['Murmansk', 33.08, 68.97, { from: 1916 }], ['Norilsk', 88.2, 69.35, { from: 1935 }], ['Anadır', 177.5, 64.73, { from: 1889 }],
+    // Güney ve Doğu Asya
+    ['Delhi', 77.21, 28.61], ['Mumbai', 72.88, 19.08], ['Kalküta', 88.36, 22.57, { from: 1690 }], ['Madras', 80.27, 13.08, { from: 1639 }],
+    ['Haydarabad', 78.47, 17.39], ['Bangalor', 77.59, 12.97], ['Ahmedabad', 72.57, 23.02], ['Lahor', 74.34, 31.55], ['Karaçi', 67.01, 24.86],
+    ['Peşaver', 71.58, 34.01], ['İslamabad', 73.05, 33.68, { from: 1960, alt: { 1900: 'Ravalpindi' } }], ['Dakka', 90.41, 23.81], ['Katmandu', 85.32, 27.72],
+    ['Kolombo', 79.86, 6.93], ['Lhasa', 91.17, 29.65], ['Kaşgar', 75.99, 39.47], ['Urumçi', 87.62, 43.83], ['Pekin', 116.4, 39.9],
+    ['Şanghay', 121.47, 31.23], ['Nanking', 118.8, 32.06], ['Kanton', 113.26, 23.13], ['Şian', 108.94, 34.34], ['Çengdu', 104.07, 30.57],
+    ['Vuhan', 114.31, 30.59], ['Kunming', 102.83, 24.88], ['Mukden', 123.43, 41.8], ['Harbin', 126.53, 45.8, { from: 1898 }],
+    ['Lanzhou', 103.83, 36.06], ['Hohhot', 111.65, 40.84], ['Ulan Bator', 106.92, 47.92], ['Karakurum', 102.83, 47.2],
+    ['Seul', 126.98, 37.57], ['Pyongyang', 125.75, 39.03], ['Tokyo', 139.69, 35.69, { alt: { 1868: 'Edo' } }], ['Kyoto', 135.77, 35.01],
+    ['Osaka', 135.5, 34.69], ['Sapporo', 141.35, 43.06, { from: 1868 }], ['Fukuoka', 130.4, 33.59], ['Taipei', 121.56, 25.03],
+    ['Hanoi', 105.85, 21.03], ['Saygon', 106.66, 10.76], ['Hue', 107.59, 16.46], ['Phnom Penh', 104.92, 11.56], ['Vientiane', 102.63, 17.98],
+    ['Bangkok', 100.5, 13.76, { alt: { 1782: 'Ayutthaya' } }], ['Rangun', 96.2, 16.84], ['Mandalay', 96.08, 21.96, { from: 1857 }],
+    ['Malakka', 102.25, 2.19], ['Kuala Lumpur', 101.69, 3.14, { from: 1857 }], ['Singapur', 103.82, 1.35, { from: 1819 }],
+    ['Batavya', 106.85, -6.21, { from: 1619, rename: { 1945: 'Cakarta' } }], ['Surabaya', 112.75, -7.25], ['Makassar', 119.42, -5.14],
+    ['Manila', 120.98, 14.6], ['Cebu', 123.89, 10.32], ['Brunei', 114.94, 4.89], ['Port Moresby', 147.18, -9.44, { from: 1873 }],
+    // Afrika
+    ['Hartum', 32.53, 15.5, { from: 1821 }], ['Addis Ababa', 38.74, 9.03, { from: 1886 }], ['Gondar', 37.47, 12.6],
+    ['Mogadişu', 45.32, 2.05], ['Mombasa', 39.67, -4.04], ['Nairobi', 36.82, -1.29, { from: 1899 }], ['Kampala', 32.58, 0.35],
+    ['Zanzibar', 39.19, -6.16], ['Darüsselam', 39.28, -6.79, { from: 1862 }], ['Kigali', 30.06, -1.94], ['Kinşasa', 15.31, -4.32, { from: 1881 }],
+    ['Luanda', 13.23, -8.84], ['Lusaka', 28.32, -15.39, { from: 1905 }], ['Harare', 31.05, -17.83, { from: 1890 }], ['Maputo', 32.57, -25.97],
+    ['Johannesburg', 28.05, -26.2, { from: 1886 }], ['Kap Kasabası', 18.42, -33.92, { from: 1652 }], ['Durban', 31.03, -29.86, { from: 1835 }],
+    ['Windhoek', 17.08, -22.56, { from: 1840 }], ['Antananarivo', 47.52, -18.88], ['Lagos', 3.38, 6.52], ['Kano', 8.52, 12.0],
+    ['Akra', -0.19, 5.6], ['Kumasi', -1.62, 6.69], ['Abican', -4.02, 5.36], ['Dakar', -17.47, 14.72, { from: 1857 }], ['Bamako', -8.0, 12.64],
+    ['Timbuktu', -3.0, 16.77], ['Niamey', 2.11, 13.51], ['Ndjamena', 15.04, 12.13, { from: 1900 }], ['Freetown', -13.23, 8.48, { from: 1792 }],
+    ['Monrovia', -10.8, 6.3, { from: 1822 }], ['Douala', 9.7, 4.05], ['Libreville', 9.45, 0.39, { from: 1849 }], ['Bangui', 18.56, 4.36, { from: 1889 }],
+    ['Agadez', 7.99, 16.97], ['Gao', -0.04, 16.27], ['Asmara', 38.93, 15.32], ['Cibuti', 43.15, 11.59, { from: 1888 }], ['Nuakşot', -15.98, 18.09, { from: 1958 }],
+    ['Elizabethville', 27.48, -11.66, { from: 1910, rename: { 1966: 'Lubumbaşi' } }], ['Kisangani', 25.19, 0.52, { from: 1883 }],
+    // Amerika
+    ['Washington', -77.04, 38.9, { from: 1790 }], ['New York', -74.01, 40.71, { from: 1625, alt: { 1664: 'Yeni Amsterdam' } }],
+    ['Boston', -71.06, 42.36, { from: 1630 }], ['Philadelphia', -75.17, 39.95, { from: 1682 }], ['Chicago', -87.63, 41.88, { from: 1833 }],
+    ['New Orleans', -90.07, 29.95, { from: 1718 }], ['St. Louis', -90.2, 38.63, { from: 1764 }], ['Houston', -95.37, 29.76, { from: 1836 }],
+    ['Dallas', -96.8, 32.78, { from: 1841 }], ['Denver', -104.99, 39.74, { from: 1858 }], ['Los Angeles', -118.24, 34.05, { from: 1781 }],
+    ['San Francisco', -122.42, 37.77, { from: 1776 }], ['Seattle', -122.33, 47.61, { from: 1851 }], ['Phoenix', -112.07, 33.45, { from: 1868 }],
+    ['Miami', -80.19, 25.76, { from: 1896 }], ['Atlanta', -84.39, 33.75, { from: 1837 }], ['Minneapolis', -93.27, 44.98, { from: 1856 }],
+    ['Salt Lake City', -111.89, 40.76, { from: 1847 }], ['Anchorage', -149.9, 61.22, { from: 1914 }], ['Juneau', -134.42, 58.3, { from: 1880 }],
+    ['Montreal', -73.57, 45.5, { from: 1642 }], ['Quebec', -71.21, 46.81, { from: 1608 }], ['Toronto', -79.38, 43.65, { from: 1793 }],
+    ['Ottawa', -75.7, 45.42, { from: 1826 }], ['Winnipeg', -97.14, 49.9, { from: 1873 }], ['Vancouver', -123.12, 49.28, { from: 1886 }],
+    ['Calgary', -114.07, 51.05, { from: 1875 }], ['Edmonton', -113.49, 53.55, { from: 1795 }], ['Halifax', -63.57, 44.65, { from: 1749 }],
+    ['Meksiko', -99.13, 19.43, { alt: { 1521: 'Tenochtitlan' } }], ['Guadalajara', -103.35, 20.66, { from: 1542 }], ['Monterrey', -100.32, 25.69, { from: 1596 }],
+    ['Havana', -82.37, 23.11, { from: 1519 }], ['Santo Domingo', -69.93, 18.49, { from: 1496 }], ['Port-au-Prince', -72.34, 18.59, { from: 1749 }],
+    ['Guatemala', -90.51, 14.63, { from: 1776 }], ['Panama', -79.52, 8.98, { from: 1519 }], ['Bogota', -74.07, 4.71, { from: 1538 }],
+    ['Caracas', -66.9, 10.48, { from: 1567 }], ['Quito', -78.47, -0.18], ['Lima', -77.04, -12.05, { from: 1535 }], ['Cusco', -71.97, -13.53],
+    ['La Paz', -68.15, -16.5, { from: 1548 }], ['Santiago de Chile', -70.67, -33.45, { from: 1541 }], ['Buenos Aires', -58.38, -34.6, { from: 1580 }],
+    ['Montevideo', -56.16, -34.9, { from: 1724 }], ['Asuncion', -57.58, -25.26, { from: 1537 }], ['Rio de Janeiro', -43.17, -22.91, { from: 1565 }],
+    ['São Paulo', -46.63, -23.55, { from: 1554 }], ['Salvador', -38.5, -12.97, { from: 1549 }], ['Recife', -34.88, -8.05, { from: 1537 }],
+    ['Manaus', -60.02, -3.12, { from: 1669 }], ['Belem', -48.5, -1.46, { from: 1616 }], ['Brasilia', -47.88, -15.79, { from: 1960 }],
+    ['Cordoba', -64.19, -31.42, { from: 1573 }], ['Mendoza', -68.83, -32.89, { from: 1561 }], ['Punta Arenas', -70.91, -53.16, { from: 1848 }],
+    // Okyanusya
+    ['Sidney', 151.21, -33.87, { from: 1788 }], ['Melbourne', 144.96, -37.81, { from: 1835 }], ['Brisbane', 153.03, -27.47, { from: 1825 }],
+    ['Perth', 115.86, -31.95, { from: 1829 }], ['Adelaide', 138.6, -34.93, { from: 1836 }], ['Darwin', 130.84, -12.46, { from: 1869 }],
+    ['Kanberra', 149.13, -35.28, { from: 1913 }], ['Hobart', 147.33, -42.88, { from: 1804 }], ['Alice Springs', 133.88, -23.7, { from: 1888 }],
+    ['Auckland', 174.76, -36.85, { from: 1840 }], ['Wellington', 174.78, -41.29, { from: 1840 }], ['Suva', 178.44, -18.14, { from: 1882 }],
+    ['Honolulu', -157.86, 21.31],
   ];
 
   const cache = new Map();
@@ -75,26 +142,32 @@
     return current;
   }
 
-  /** Bir senaryo yılı için eyalet → { name, city } tablosu */
-  function table(year) {
-    if (cache.has(year)) return cache.get(year);
-    const grid = MH.geo.buildGrid();
+  /** Bir harita ve yıl için eyalet → { names, city } tablosu */
+  function table(grid, year) {
+    const key = grid.source + ':' + year;
+    if (cache.has(key)) return cache.get(key);
     const { provinces } = grid;
-    const lonScale = Math.cos((46 * Math.PI) / 180);
     const city = new Array(provinces.length).fill(null);
     const placed = [];
+    const km = (p, lon, lat) => {
+      const k = Math.cos((lat * Math.PI) / 180);
+      return Math.hypot((p.lon - lon) * k, p.lat - lat) * 111.32;
+    };
     for (const entry of CITIES) {
       const name = nameFor(entry, year);
       if (!name) continue;
-      const dist = (q) => Math.hypot((q.lon - entry[1]) * lonScale, q.lat - entry[2]);
-      let pid = grid.nearest(entry[1], entry[2]);
-      // Altıgen başka bir şehre aitse en yakın boş komşuya kaydır
+      // Şehri içeren eyalet; bulunamazsa merkezi en yakın eyalet (en fazla 260 km)
+      let pid = grid.containingNear ? grid.containingNear(entry[1], entry[2]) : -1;
+      if (pid < 0) {
+        pid = grid.nearest(entry[1], entry[2]);
+        if (km(provinces[pid], entry[1], entry[2]) > 260) continue;
+      }
+      // Eyalet başka bir şehre aitse en yakın boş komşuya kaydır
       if (city[pid]) {
-        const free = provinces[pid].neighbors.filter((n) => !city[n]).sort((a, b) => dist(provinces[a]) - dist(provinces[b]));
-        if (!free.length) continue;
+        const free = provinces[pid].neighbors.filter((n) => !city[n]).sort((a, b) => km(provinces[a], entry[1], entry[2]) - km(provinces[b], entry[1], entry[2]));
+        if (!free.length || km(provinces[free[0]], entry[1], entry[2]) > 260) continue;
         pid = free[0];
       }
-      if (dist(provinces[pid]) > 1.1) continue;
       city[pid] = name;
       placed.push(pid);
     }
@@ -103,28 +176,36 @@
       let best = null;
       let bestD = Infinity;
       for (const c of placed) {
-        const q = provinces[c];
-        const d = (q.x - p.x) ** 2 + (q.y - p.y) ** 2;
+        const d = km(provinces[c], p.lon, p.lat);
         if (d < bestD) { bestD = d; best = c; }
       }
-      return best !== null && Math.sqrt(bestD) < 90 ? city[best] + ' yöresi' : null;
+      return best !== null && bestD < 450 ? city[best] + ' yöresi' : null;
     });
     const t = { names, city };
-    cache.set(year, t);
+    cache.set(key, t);
     return t;
   }
 
   /** Eyaletin adı ("Belgrad", "Belgrad yöresi" ya da "<Ulus> taşrası") */
   function nameOf(game, pid) {
-    const t = table(game.scenario.year);
+    const t = table(game.grid, game.scenario.year);
     if (t.names[pid]) return t.names[pid];
     const owner = game.state.owner[pid];
-    return owner ? game.nation(owner).name + ' taşrası' : 'Issız topraklar';
+    return owner ? game.nation(owner).name + ' taşrası' : 'Sahipsiz topraklar';
   }
 
   function isCity(game, pid) {
-    return !!table(game.scenario.year).city[pid];
+    return !!table(game.grid, game.scenario.year).city[pid];
   }
 
-  MH.places = { CITIES, nameOf, isCity, table };
+  // Şehrin önem sırası (listede ne kadar öndeyse o kadar önemli)
+  const RANK = new Map();
+  CITIES.forEach((c, i) => {
+    RANK.set(c[0], i);
+    for (const v of Object.values(c[3]?.alt || {})) RANK.set(v, i);
+    for (const v of Object.values(c[3]?.rename || {})) RANK.set(v, i);
+  });
+  const rank = (name) => RANK.get(name) ?? 1e9;
+
+  MH.places = { CITIES, nameOf, isCity, table, rank };
 })((globalThis.MH = globalThis.MH || {}));
