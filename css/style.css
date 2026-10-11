@@ -152,7 +152,7 @@ button, input, select { font: inherit; color: inherit; }
 #map .stack.foe rect:first-child { stroke: #ff5a4a; stroke-width: 1.4; }
 #map .stack.selected rect:first-child { stroke: #fff; stroke-width: 2.4; }
 #map .stack.shattered { opacity: .55; }
-#map .stack text { font: 700 7.5px var(--font); text-anchor: middle; dominant-baseline: middle; fill: #fff; stroke: rgba(0, 0, 0, .75); stroke-width: 1.6; paint-order: stroke; pointer-events: none; }
+#map .stack text { font: 700 6.5px var(--font); text-anchor: middle; dominant-baseline: middle; fill: #fff; stroke: rgba(0, 0, 0, .75); stroke-width: 1.6; paint-order: stroke; pointer-events: none; }
 #map .siege-bg { fill: rgba(0, 0, 0, .7); }
 #map .siege-fg { fill: #ff7a45; }
 #map .army-path { fill: none; stroke: var(--gold-2); stroke-width: 1.4; stroke-dasharray: 3 2.5; opacity: .8; pointer-events: none; }
@@ -171,6 +171,20 @@ button, input, select { font: inherit; color: inherit; }
 .sl-status { font-size: 12px; color: var(--muted); }
 .sl-status.siege { color: #ff9f6e; }
 .sl-status.shattered { color: var(--bad); }
+
+#map .fort-mark { fill: #f1e9c6; stroke: #1a1408; stroke-width: .8; pointer-events: none; }
+#map .construction-mark { fill: #ffb347; stroke: #1a1408; stroke-width: .8; pointer-events: none; }
+.card.province { border-color: var(--gold); }
+.prov-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.prov-head h3 { margin: 0; }
+.prov-head p { margin: 2px 0 8px; }
+.chip.warn { border-color: var(--warn); }
+.build-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+.build { text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.build:hover:not(:disabled) { border-color: var(--gold); }
+.build:disabled { opacity: .5; cursor: not-allowed; }
+.build small { color: var(--muted); font-size: 11px; }
+.build span { color: var(--gold-2); font-size: 11px; font-weight: 600; }
 
 #map-tooltip {
   position: absolute; pointer-events: none; background: rgba(18, 22, 31, .95); border: 1px solid var(--line);

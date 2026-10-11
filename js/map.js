@@ -42,6 +42,7 @@
         this.requestRender();
       });
       game.on('day', () => this.requestStacks());
+      game.on('buildings', () => this.renderBuildings());
       game.on('month', () => {
         if (this.mode === 'diplomatic') {
           this.dirty.fills = true;
@@ -97,6 +98,7 @@
       this.enemyPath = el('path', { class: 'enemy-outline' }, this.root);
       this.playerPath = el('path', { class: 'player-outline' }, this.root);
       this.selectPath = el('path', { class: 'select-outline' }, this.root);
+      this.buildingLayer = el('g', { class: 'buildings' }, this.root);
       this.capitalLayer = el('g', { class: 'capitals' }, this.root);
       this.labelLayer = el('g', { class: 'labels' }, this.root);
       this.pathLayer = el('g', { class: 'army-paths' }, this.root);
@@ -131,6 +133,7 @@
       }
       if (this.dirty.labels) {
         this._renderLabels();
+        this.renderBuildings();
         this.dirty.labels = false;
       }
     }
@@ -277,8 +280,9 @@
         const p = provinces[s.prov];
         const k = slot.get(s.prov) || 0;
         slot.set(s.prov, k + 1);
-        const x = p.x + (k % 2 ? 9 : 0) * (k ? 1 : 0);
-        const y = p.y - 2 + k * 8;
+        // Simgeler altıgenin alt yarısında durur; üst yarı eyalete tıklamak için açık kalır
+        const x = p.x + (k % 2 ? 1 : -1) * (k ? 6 : 0);
+        const y = p.y + 5 + Math.floor(k / 2) * 9;
         const mine = s.owner === pid;
         if (mine && s.path.length) {
           const pts = [[p.x, p.y], ...s.path.map((i) => [provinces[i].x, provinces[i].y])];
@@ -293,15 +297,32 @@
         const cls = ['stack', mine ? 'mine' : 'foe', st.kind, s.id === this.selectedStack ? 'selected' : '', s.auto && mine ? 'auto' : '']
           .filter(Boolean).join(' ');
         const node = el('g', { class: cls, 'data-stack': s.id, transform: 'translate(' + f(x) + ',' + f(y) + ')' }, this.stackLayer);
-        el('rect', { x: -13, y: -7, width: 26, height: 13, rx: 3, fill: g.nation(s.owner).color }, node);
+        el('rect', { x: -10, y: -5.5, width: 20, height: 11, rx: 3, fill: g.nation(s.owner).color }, node);
         const t = el('text', { x: 0, y: 0.5 }, node);
         t.textContent = s.size >= 1 ? Math.round(s.size) + 'k' : '<1k';
         if (st.kind === 'siege') {
           const sg = g.state.sieges[s.prov];
           const pct = Math.min(1, sg.progress / sg.needed);
-          el('rect', { x: -13, y: 7.5, width: 26, height: 3, class: 'siege-bg' }, node);
-          el('rect', { x: -13, y: 7.5, width: f(26 * pct), height: 3, class: 'siege-fg' }, node);
+          el('rect', { x: -10, y: 6, width: 20, height: 2.6, class: 'siege-bg' }, node);
+          el('rect', { x: -10, y: 6, width: f(20 * pct), height: 2.6, class: 'siege-fg' }, node);
         }
+      }
+    }
+
+    /** Kaleler (tüm uluslar) ve oyuncunun süren inşaatları */
+    renderBuildings() {
+      const g = this.game;
+      const { provinces } = this.grid;
+      this.buildingLayer.innerHTML = '';
+      for (const [pid, list] of Object.entries(g.state.buildings || {})) {
+        if (!list.includes('fort')) continue;
+        const p = provinces[pid];
+        el('path', { d: 'M' + f(p.x + 4) + ' ' + f(p.y + 7) + 'h7v-6h-1.4v1.6h-1.4v-1.6h-1.4v1.6h-1.4v-1.6h-1.4z', class: 'fort-mark' }, this.buildingLayer);
+      }
+      for (const c of g.state.construction || []) {
+        if (c.owner !== g.state.playerId) continue;
+        const p = provinces[c.pid];
+        el('circle', { cx: f(p.x - 6), cy: f(p.y + 5), r: 2.2, class: 'construction-mark' }, this.buildingLayer);
       }
     }
 

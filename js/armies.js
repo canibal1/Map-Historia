@@ -117,6 +117,10 @@
     return path;
   }
 
+  function placeName(game, pid) {
+    return MH.places ? MH.places.nameOf(game, pid) : game.nation(game.state.owner[pid]).name;
+  }
+
   function quality(game, id) {
     return game.quality(id);
   }
@@ -468,7 +472,8 @@
     const st = game.state;
     const pid = st.playerId;
     const provOwner = st.owner[prov];
-    const terrain = (side) => (side.some((s) => s.owner === provOwner) ? 1.25 : 1);
+    const fort = game.hasBuilding(prov, 'fort') ? 1.15 : 1;
+    const terrain = (side) => (side.some((s) => s.owner === provOwner) ? 1.25 * fort : 1);
     const sP = ours.reduce((a, s) => a + strength(game, s), 0) * terrain(ours);
     const sE = theirs.reduce((a, s) => a + strength(game, s), 0) * terrain(theirs);
     const pWin = (sP ** 1.5 + 0.1) / (sP ** 1.5 + sE ** 1.5 + 0.2);
@@ -541,6 +546,7 @@
     let days = 12 + game.state.dev[prov] * 2;
     if (nat.capital === prov) days += 25;
     if (game.provincesOf(owner).length === 1) days += 20;
+    if (game.hasBuilding(prov, 'fort')) days += 25;
     return Math.round(days);
   }
 
@@ -564,7 +570,7 @@
       const isNew = !(st.sieges[prov] && st.sieges[prov].by === by);
       const sg = isNew ? { by, progress: 0 } : st.sieges[prov];
       if (isNew && st.owner[prov] === st.playerId) {
-        game.addLog('🏰 ' + game.nation(by).name + ' bir eyaletinizi kuşatmaya başladı!', 'bad', [st.playerId]);
+        game.addLog('🏰 ' + game.nation(by).name + ' ' + placeName(game, prov) + ' kuşatmasını başlattı!', 'bad', [st.playerId]);
         game.emit('siege', { province: prov, by });
       }
       sg.progress = round1(sg.progress + rate);
@@ -591,7 +597,7 @@
     if (stack.shattered) return { kind: 'shattered', text: 'Dağınık (' + stack.shattered + ' gün)' };
     const sg = st.sieges[stack.prov];
     if (sg && sg.by === stack.owner && !stack.path.length) {
-      return { kind: 'siege', text: 'Kuşatma: ' + game.nation(st.owner[stack.prov]).name + ' %' + Math.min(99, Math.round((sg.progress / sg.needed) * 100)) };
+      return { kind: 'siege', text: 'Kuşatma: ' + placeName(game, stack.prov) + ' %' + Math.min(99, Math.round((sg.progress / sg.needed) * 100)) };
     }
     if (stack.path.length) return { kind: 'move', text: 'Yürüyüşte (' + stack.path.length + ' eyalet)' };
     return { kind: 'idle', text: 'Beklemede' };

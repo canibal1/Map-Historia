@@ -32,6 +32,15 @@
     defensive: { label: 'Savunma', desc: 'Tahkimatlı hatlar; düşman saldırılarına karşı güçlü, nadiren saldırır', weight: 1, aggression: 1, defense: 1.45, capture: 0.5 },
   };
 
+  // Eyalet yapıları (AC 2.1 — üretim ve kalkınma kararları)
+  const BUILDINGS = {
+    market: { label: 'Pazar', icon: '🏪', days: 120, cost: (dev) => 50 + dev * 5, desc: 'Aylık altın +(0,5 + gelişim × 0,25)' },
+    barracks: { label: 'Kışla', icon: '⛺', days: 120, cost: (dev) => 55 + dev * 2, desc: 'Aylık insan gücü +(300 + gelişim × 100), en fazla insan gücü +5.000' },
+    fort: { label: 'Kale', icon: '🏰', days: 180, cost: () => 90, desc: 'Kuşatma +25 gün, savunan ordu +%15; bakımı ayda 0,6 altın' },
+    temple: { label: 'Mabet', icon: '⛪', days: 150, cost: (dev) => 60 + dev * 3, desc: 'İstikrar hedefi +1,5 (en fazla +9)' },
+  };
+  const FORT_UPKEEP = 0.6;
+
   const CHRONICLE_TYPES = { war: '⚔️', peace: '🕊️', event: '📜', player: '👑', goal: '🎯' };
 
   const PEACE_TYPES = {
@@ -130,6 +139,8 @@
         chronicle: [],
         stacks: [],
         sieges: {},
+        buildings: {},
+        construction: [],
         nextStackId: 1,
         rng: sc.seed,
         speed: 0,
@@ -221,6 +232,8 @@
       state.beaten ??= [];
       state.chronicle ??= [];
       state.stacks ??= [];
+      state.buildings ??= {};
+      state.construction ??= [];
       state.sieges ??= {};
       state.nextStackId ??= 1;
       // Eski kayıtlarda 0 (1970) değeri tarihî tarihlerin ilerisinde kalıyordu
@@ -457,8 +470,71 @@
       if (nat.stability < 20) tax *= 0.75;
       let trade = nat.trade.filter((t) => this.state.nations[t]?.alive).length * (2 + dev * 0.025);
       if (nat.focus === 'trade') trade *= 1.6;
-      const upkeep = nat.army * UPKEEP;
-      return { tax: round1(tax), trade: round1(trade), upkeep: round1(upkeep), total: round1(tax + trade - upkeep) };
+      const markets = this.buildingsOf(id, 'market');
+      const buildings = markets.reduce((s, p) => s + 0.5 + this.state.dev[p] * 0.25, 0);
+      const upkeep = nat.army * UPKEEP + this.buildingsOf(id, 'fort').length * FORT_UPKEEP;
+      return {
+        tax: round1(tax),
+        trade: round1(trade),
+        buildings: round1(buildings),
+        upkeep: round1(upkeep),
+        total: round1(tax + trade + buildings - upkeep),
+      };
+    }
+
+    // ------------------------------------------------------------------ yapılar
+    /** Ulusun belirli türdeki yapıya sahip eyaletleri */
+    buildingsOf(id, type) {
+      const out = [];
+      for (const [pid, list] of Object.entries(this.state.buildings)) {
+        if (this.state.owner[pid] === id && list.includes(type)) out.push(Number(pid));
+      }
+      return out;
+    }
+
+    hasBuilding(pid, type) {
+      return !!this.state.buildings[pid]?.includes(type);
+    }
+
+    buildingCost(pid, type) {
+      return Math.round(BUILDINGS[type].cost(this.state.dev[pid]));
+    }
+
+    underConstruction(pid) {
+      return this.state.construction.filter((c) => c.pid === pid);
+    }
+
+    build(id, pid, type) {
+      const def = BUILDINGS[type];
+      const nat = this.state.nations[id];
+      if (!def) return this._result(false, 'Bilinmeyen yapı.');
+      const where = MH.places ? MH.places.nameOf(this, pid) : 'Eyalet';
+      if (this.state.owner[pid] !== id) return this._result(false, 'Yalnızca kendi eyaletlerinize inşa edebilirsiniz.');
+      if (this.hasBuilding(pid, type)) return this._result(false, where + ' zaten bir ' + def.label + ' yapısına sahip.');
+      if (this.underConstruction(pid).some((c) => c.type === type)) return this._result(false, 'Bu yapı zaten inşa ediliyor.');
+      if (this.state.sieges?.[pid]) return this._result(false, 'Kuşatma altındaki eyalette inşaat yapılamaz.');
+      const cost = this.buildingCost(pid, type);
+      if (nat.gold < cost) return this._result(false, def.label + ' için ' + cost + ' altın gerekli.');
+      nat.gold = round1(nat.gold - cost);
+      this.state.construction.push({ pid, type, owner: id, done: this.state.day + def.days });
+      if (id === this.state.playerId) this.addLog(def.icon + ' ' + where + ': ' + def.label + ' inşaatı başladı.', 'info', [id]);
+      this.emit('buildings', { pid });
+      return this._result(true, where + ': ' + def.label + ' inşaatı başladı (' + def.days + ' gün).', [['Altın', -cost], [def.desc, null]]);
+    }
+
+    _progressConstruction() {
+      const done = this.state.construction.filter((c) => c.done <= this.state.day);
+      if (!done.length) return;
+      this.state.construction = this.state.construction.filter((c) => c.done > this.state.day);
+      for (const c of done) {
+        if (this.state.owner[c.pid] !== c.owner) continue;
+        (this.state.buildings[c.pid] = this.state.buildings[c.pid] || []).push(c.type);
+        if (c.owner === this.state.playerId) {
+          const def = BUILDINGS[c.type];
+          this.addLog(def.icon + ' ' + (MH.places ? MH.places.nameOf(this, c.pid) : 'Eyalet') + ': ' + def.label + ' tamamlandı.', 'good', [c.owner]);
+        }
+        this.emit('buildings', { pid: c.pid, completed: c });
+      }
     }
 
     manpowerGrowth(id) {
@@ -466,11 +542,12 @@
       let g = this.totalDev(id) * 0.05;
       if (nat.focus === 'agriculture') g *= 1.3;
       if (nat.focus === 'military') g *= 1.15;
+      for (const p of this.buildingsOf(id, 'barracks')) g += 0.3 + this.state.dev[p] * 0.1;
       return round1(g);
     }
 
     maxManpower(id) {
-      return Math.round(this.totalDev(id) * 0.6 + 10);
+      return Math.round(this.totalDev(id) * 0.6 + 10 + this.buildingsOf(id, 'barracks').length * 5);
     }
 
     recruitCost(id) {
@@ -487,6 +564,7 @@
       if (nat.focus === 'agriculture') t += 6;
       if (nat.focus === 'military') t -= 4;
       if (nat.gold < 0) t -= 15;
+      t += Math.min(9, this.buildingsOf(id, 'temple').length * 1.5);
       return clamp(Math.round(t), 0, 100);
     }
 
@@ -557,6 +635,7 @@
       this.state.day += 1;
       this._dailyCombat();
       MH.armies?.daily(this);
+      this._progressConstruction();
       const { d } = dayToDate(this.state.day);
       if (d === 1) this._monthly();
       MH.events?.checkScheduled(this);
@@ -1019,6 +1098,8 @@
       options.sort((x, y) => this.state.dev[x] - this.state.dev[y]);
       const pid = options[Math.floor(this.random() * Math.min(3, options.length))];
       // Başkentler surlarla korunur; düşmeleri daha zordur
+      // Kaleler soyut savaşta da direnir
+      if (this.hasBuilding(pid, 'fort') && this.random() < 0.5) return null;
       const lastStand = this.provincesOf(loser).length === 1;
       if (pid === L.capital && this.random() > (lastStand ? 0.15 : 0.3)) return null;
       this.transferProvince(pid, winner, war);
@@ -1030,6 +1111,8 @@
       const old = this.state.owner[pid];
       if (old === newOwner) return;
       this.state.owner[pid] = newOwner;
+      // Yapılar yeni sahibine geçer; süren inşaatlar ise yarım kalır
+      this.state.construction = this.state.construction.filter((c) => c.pid !== pid);
       const W = this.state.nations[newOwner];
       W.peakProvinces = Math.max(W.peakProvinces, this.provincesOf(newOwner).length);
       if (war) war.captured[newOwner] = (war.captured[newOwner] || 0) + 1;
@@ -1049,7 +1132,7 @@
       }
       if (newOwner === this.state.playerId || old === this.state.playerId) {
         this.addLog(
-          (newOwner === this.state.playerId ? 'Fetih: ' : 'Kayıp: ') + 'bir eyalet ' + L.name + ' → ' + W.name + ' eline geçti.',
+          (newOwner === this.state.playerId ? 'Fetih: ' : 'Kayıp: ') + (MH.places ? MH.places.nameOf(this, pid) : 'bir eyalet') + ' ' + L.name + ' → ' + W.name + ' eline geçti.',
           newOwner === this.state.playerId ? 'good' : 'bad',
           [old, newOwner],
         );
@@ -1188,5 +1271,6 @@
   MH.FOCUS = FOCUS;
   MH.PEACE_TYPES = PEACE_TYPES;
   MH.STANCES = STANCES;
+  MH.BUILDINGS = BUILDINGS;
   MH.util = { clamp, round1, parseDay, dayToDate, formatDay, pairKey, MONTHS, SPEEDS };
 })((globalThis.MH = globalThis.MH || {}));

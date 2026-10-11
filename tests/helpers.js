@@ -1,6 +1,6 @@
 'use strict';
 // Tarayıcı betiklerini Node ortamına yükler (globalThis.MH)
-for (const f of ['geo', 'scenarios', 'engine', 'ai', 'events', 'goals', 'armies']) require('../js/' + f + '.js');
+for (const f of ['geo', 'places', 'scenarios', 'engine', 'ai', 'events', 'goals', 'armies']) require('../js/' + f + '.js');
 
 const MH = globalThis.MH;
 

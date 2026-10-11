@@ -37,7 +37,7 @@ olarak Sultan'a haraç öderseniz kuşatma hiç gerçekleşmez; 1914'te Avustury
 | 1.1 | Ana menüde üç dönem kartı (yıl, başlık, açıklama, ulus sayısı) | `ui.js` `showMenu`, `scenarios.js` | `AC 1.1` |
 | 1.2 | Seçilen dönemin haritasında bir ülkeye tıklama ya da lider listesinden seçme | `ui.js` `renderPick`, `map.js` | `AC 1.2` |
 | 1.3 | Seçim panelinde hazine, aylık gelir, eyalet, gelişim, istikrar, vergi; ordu, insan gücü, güç sırası; müttefikler, savaşlar, ticaret, dostlar, rakipler, komşular ve zorluk tahmini | `engine.js` `summary` | `AC 1.3` |
-| 2.1 | **Ekonomi** sekmesi: vergi kaydırıcısı (anlık istikrar önizlemesi), bütçe dökümü, 4 üretim odağı (Tarım/Sanayi/Ticaret/Askerî, 180 gün bekleme), ticaret anlaşmaları | `setTax`, `setFocus`, `proposeTrade`, `budget` | `AC 2.1` ×3 |
+| 2.1 | **Ekonomi** sekmesi: vergi kaydırıcısı (anlık istikrar önizlemesi), bütçe dökümü, 4 üretim odağı (Tarım/Sanayi/Ticaret/Askerî, 180 gün bekleme), ticaret anlaşmaları, şenlik. Eyalet kartında **yapılar**: Pazar, Kışla, Kale, Mabet | `setTax`, `setFocus`, `proposeTrade`, `build`, `budget` | `AC 2.1` ×3, `economy.test.js` |
 | 2.2 | **Diplomasi** sekmesi: ittifak öner/boz, ticaret, hediye, savaş ilanı (onay penceresinde sonuç önizlemesi), barış (beyaz barış / tazminat iste / tazminat öde). Yapay zekâ ilişki ve savaş skoruna göre kabul ya da ret eder; savunma ittifakları otomatik devreye girer | `proposeAlliance`, `declareWar`, `offerPeace` | `AC 2.2` ×4 |
 | 2.3 | Her karar bir sonuç bildirimi gösterir: savaş ilanı istikrarı düşürür, komşular saldırganlık nedeniyle tavır alır, ateşkes ihlali ağır cezalıdır; vergi, ittifak bozma, hediye, ticaret ilişkileri ve istikrarı değiştirir. "Diplomatik harita" modu komşuların tutumunu renklerle gösterir | `engine.js`, `map.js` `colorOf` | `AC 2.3` ×2 |
 | 3.1 | Üst çubukta duraklat + 3 hız; boşluk ve 1–3 kısayolları; olay geldiğinde zaman otomatik durur | `setSpeed`, `ui.js` `_loop` | `AC 3.1` ×2 |
@@ -57,12 +57,29 @@ User Story'nin *"kendi imparatorluğumu ve hikâyemi yaratabileyim"* kısmı iç
 - **Senaryo sonu:** 1453 → 1520, 1815 → 1850, 1914 → 1925. Bitişte (ya da yenilgide) tarih puanı, rütbe
   (*Unutulan Hanedan … Efsanevi İmparatorluk*), hedefler ve kronik gösterilir; isterseniz oynamaya devam edebilirsiniz.
 
+## Eyaletler ve yapılar
+
+- **Eyalet adları:** ~200 tarihî şehir haritaya yerleştirilir; adı döneme göre değişir (1453'te *Konstantinopolis*, sonra *İstanbul*;
+  1914'te *Budapeşte*; Sankt Peterburg ve Odessa henüz kurulmadıysa yoktur). Diğer eyaletler en yakın şehrin "yöresi" olarak anılır.
+  Fetih, kuşatma ve ordu bildirimleri eyalet adlarını kullanır.
+- **Yapılar:** Kendi eyaletinize tıklayınca açılan kartta inşa edilir; her eyalette her türden bir tane olabilir, inşaat 120–180 gün sürer.
+
+  | Yapı | Etki | Maliyet |
+  | ---- | ---- | ------- |
+  | 🏪 Pazar | Aylık altın +(0,5 + gelişim × 0,25) | 50 + gelişim × 5 |
+  | ⛺ Kışla | Aylık insan gücü +(300 + gelişim × 100), en fazla insan gücü +5.000 | 55 + gelişim × 2 |
+  | 🏰 Kale | Kuşatma +25 gün, savunan ordu +%15, soyut savaşta direnç; ayda 0,6 altın bakım | 90 |
+  | ⛪ Mabet | İstikrar hedefi +1,5 (en fazla +9) | 60 + gelişim × 3 |
+
+  Fethedilen eyaletin yapıları yeni sahibine geçer, yarım kalan inşaat iptal olur; kuşatma altındaki eyalette inşaat yapılamaz.
+  Kaleler haritada işaretlidir. Yapay zekâ da barış zamanında artan altınını yapılara yatırır.
+
 ## Ordular ve kuşatmalar
 
 Oyuncunun dahil olduğu savaşlar haritada somut ordularla yürür:
 
 - **Ordu simgeleri** (asker sayısıyla) eyaletlerde durur. Bir orduyu seçin (simgesine ya da *Ordu* sekmesindeki listeye tıklayın),
-  sonra hedef eyalete tıklayın: rota çizilir ve ordu yürür. Tarafsız ülkelere giriş yoktur; müttefik ve düşman toprakları geçilebilir.
+  sonra hedef eyalete tıklayın: rota çizilir ve ordu yürür. Seçili orduya tekrar tıklamak seçimi bırakır ve bulunduğu eyaleti açar. Tarafsız ülkelere giriş yoktur; müttefik ve düşman toprakları geçilebilir.
 - **Meydan muharebesi:** Düşman ordularıyla aynı eyalette karşılaşınca savaş olur (güç oranı, ordu kalitesi, kendi toprağında %25 avantaj).
   Yenilen ordu dağılır ve geri çekilir; kaçacak yeri yoksa teslim olur.
 - **Kuşatma:** Düşman eyaletinde duran ordu kuşatma başlatır. Süre gelişime, başkent olup olmamasına ve ordunun büyüklüğüne bağlıdır.
@@ -93,8 +110,8 @@ Her senaryodaki her ulus, 15 yıl boyunca iki farklı botla otomatik oynatıldı
 
 | Oyuncu tipi | 1453 hayatta kalan | 1815 | 1914 |
 | ----------- | ------------------ | ---- | ---- |
-| Aktif bot (vergi/istikrar dengesi, asker, barış, cephe duruşu) | 45/48 | 25/28 | 20/22 |
-| Pasif bot (hiçbir karar vermez; ordular otomatik komutada) | 29/48 | 22/28 | 17/22 |
+| Aktif bot (vergi/istikrar dengesi, asker, barış, cephe duruşu, pazar yatırımı) | 47/48 | 27/28 | 17–20/22 |
+| Pasif bot (hiçbir karar vermez; ordular otomatik komutada) | 28/48 | 15/28 | 16/22 |
 
 Yani kararlar belirleyici, ama hareketsiz kalan büyük devletler de birkaç yılda çökmez. En zor başlangıçlar: 1914 Karadağ ve
 Belçika, 1453 Arnavutluk ve Bizans, 1815 Saksonya. Aktif bot ortalama 29–35 tarih puanı alıyor.
@@ -105,6 +122,7 @@ Belçika, 1453 Arnavutluk ve Bizans, 1815 Saksonya. Aktif bot ortalama 29–35 t
 index.html          Ekranlar: menü, harita, yan panel, olay penceresi
 css/style.css       Arayüz stilleri (mobil uyumlu)
 js/geo.js           Kıyı poligonları, altıgen ızgara, komşuluk ve boğaz bağlantıları
+js/places.js        Tarihî şehirler ve döneme göre eyalet adları
 js/scenarios.js     1453 / 1815 / 1914 senaryo verileri
 js/engine.js        Oyun durumu: ekonomi, diplomasi, savaş, zaman, kayıt
 js/ai.js            Yapay zekâ ulusların aylık kararları
@@ -116,9 +134,9 @@ js/ui.js            Menü, ulus seçimi, sekmeler, bildirimler
 tests/              Kabul kriterleri ve ilerleme mekanikleri için Node testleri
 ```
 
-`engine.js`, `ai.js`, `events.js`, `goals.js` ve `armies.js` DOM'a bağımlı değildir; testler bunları doğrudan Node'da çalıştırır.
+`engine.js`, `ai.js`, `events.js`, `goals.js`, `armies.js` ve `places.js` DOM'a bağımlı değildir; testler bunları doğrudan Node'da çalıştırır.
 
 ## Sonraki adımlar (öneri)
 
 Modüller ayrı epiklere bölünebilir: ayrıntılı **Savaş Sistemi** (birlik türleri, deniz kuvvetleri, generaller),
-**Diplomasi Ekranı** (antlaşma maddeleri, vasallık, barışta toprak talebi), eyalet adları ve bina/kalkınma sistemi.
+**Diplomasi Ekranı** (antlaşma maddeleri, vasallık, barışta toprak iadesi), din/kültur ve isyan sistemi.

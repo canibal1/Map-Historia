@@ -149,7 +149,14 @@
         this.flashBattle(won ? '🏆 ' + other + ' ordusu yenildi (−' + soldiers(lossL) + ')' : '💥 ' + other + ' karşısında yenilgi (−' + soldiers(lossL) + ')', won);
       });
       game.on('month', () => { this._dirtySide = true; });
-      game.on('siege', ({ by }) => this.toast('🏰 Kuşatma altındayız', [[game.nation(by).name + ' bir eyaletimizi kuşatıyor. Ordularınızı gönderin!', null]], 'bad'));
+      game.on('siege', ({ by, province }) => this.toast('🏰 ' + MH.places.nameOf(game, province) + ' kuşatma altında', [[game.nation(by).name + ' kuşatıyor. Ordularınızı gönderin!', null]], 'bad'));
+      game.on('buildings', ({ completed }) => {
+        if (completed && completed.owner === game.state.playerId) {
+          const def = MH.BUILDINGS[completed.type];
+          this.toast(def.icon + ' ' + def.label + ' tamamlandı', [[MH.places.nameOf(game, completed.pid), null]], 'good');
+        }
+        this._dirtySide = true;
+      });
       game.on('goal', (goal) => this.toast('🎯 Hedef tamamlandı', [[goal.label, null]], 'good'));
       game.on('scenarioEnd', () => this.showEnding());
       game.on('province', () => { this._dirtySide = true; });
@@ -265,6 +272,7 @@
       this.selected = null;
       this.target = null;
       this.selectedStack = null;
+      this.provinceSel = null;
       $('#order-hint').hidden = true;
       this.tab = 'overview';
       this.map.select(null);
@@ -381,8 +389,10 @@
       const g = this.game;
       const ended = g.state.ended && !g.state.gameOver
         ? `<button class="btn wide" data-act="showEnding">📜 Senaryo sonucunu yeniden gör</button>` : '';
-      return this._summaryHtml(g.summary(g.state.playerId), false, this._goalsHtml(g.state.goals, true) + ended) +
-        `<p class="muted pad small">İpucu: Haritadaki bir ülkeye tıklayarak diplomasi ekranını açın. Harita modunu "Diplomatik" yaparak komşularınızın size karşı tutumunu görün.</p>`;
+      const prov = this.provinceSel !== undefined && this.provinceSel !== null && g.state.owner[this.provinceSel] === g.state.playerId
+        ? this._provinceHtml(this.provinceSel, true) : '';
+      return prov + this._summaryHtml(g.summary(g.state.playerId), false, this._goalsHtml(g.state.goals, true) + ended) +
+        `<p class="muted pad small">İpucu: Kendi eyaletinize tıklayarak yapı inşa edin; başka bir ülkeye tıklayarak diplomasi ekranını açın. "Diplomatik" harita modu komşularınızın tutumunu gösterir.</p>`;
     }
 
     // AC 2.1 — ekonomi
@@ -405,11 +415,13 @@
           <table class="budget">
             <tr><td>Vergi geliri</td><td class="tone-good">+${num(b.tax)}</td></tr>
             <tr><td>Ticaret anlaşmaları (${p.trade.length})</td><td class="tone-good">+${num(b.trade)}</td></tr>
-            <tr><td>Ordu bakımı (${soldiers(p.army)})</td><td class="tone-bad">−${num(b.upkeep)}</td></tr>
+            <tr><td>Pazarlar (${g.buildingsOf(p.id, 'market').length})</td><td class="tone-good">+${num(b.buildings)}</td></tr>
+            <tr><td>Ordu ve kale bakımı</td><td class="tone-bad">−${num(b.upkeep)}</td></tr>
             <tr class="total"><td>Net</td><td class="tone-${b.total >= 0 ? 'good' : 'bad'}">${signed(b.total)}</td></tr>
           </table>
           <p class="muted small">İstikrar hedefi: <b>${g.stabilityTarget(p.id)}</b> · İnsan gücü artışı: +${soldiers(g.manpowerGrowth(p.id))}/ay</p>
         </section>
+        ${this._buildingsSummaryHtml()}
         <section class="card">
           <h3>Halkın gönlü</h3>
           ${(() => {
@@ -436,6 +448,19 @@
               <button class="btn tiny ghost" data-act="cancelTrade" data-target="${t}">İptal et</button></li>`).join('')}</ul>`
             : '<p class="muted small">Henüz ticaret anlaşmanız yok. Haritada bir ülke seçip Diplomasi sekmesinden önerin.</p>'}
         </section>`;
+    }
+
+    _buildingsSummaryHtml() {
+      const g = this.game;
+      const id = g.state.playerId;
+      const counts = Object.entries(MH.BUILDINGS).map(([t, d]) => `<span class="chip">${d.icon} ${d.label} <b>${g.buildingsOf(id, t).length}</b></span>`).join('');
+      const work = g.state.construction.filter((c) => c.owner === id);
+      return `<section class="card">
+        <h3>Yapılar</h3>
+        <div class="flags">${counts}</div>
+        ${work.length ? `<ul class="rows">${work.map((c) => `<li>🔨 ${MH.BUILDINGS[c.type].label} · ${esc(MH.places.nameOf(g, c.pid))}<span class="muted small" style="margin-left:auto">${c.done - g.state.day} gün</span></li>`).join('')}</ul>` : ''}
+        <p class="muted small">İnşa etmek için haritada kendi eyaletinize tıklayın. Pazarlar zengin eyaletlerde, kaleler sınır boylarında en çok işe yarar.</p>
+      </section>`;
     }
 
     _militaryTab() {
@@ -528,6 +553,7 @@
               <div><dt>Hazine</dt><dd>${num(Math.round(n.gold))}</dd></div>
               <div><dt>İstikrar</dt><dd class="tone-${stabilityTone(n.stability)}">${Math.round(n.stability)}</dd></div>
             </dl>
+            ${this.provinceSel != null && g.state.owner[this.provinceSel] === t ? this._provinceHtml(this.provinceSel, false) : ''}
             <p class="muted small">Müttefikleri: ${n.allies.length ? n.allies.map((a) => esc(g.nation(a).name)).join(', ') : '—'}${g.enemiesOf(t).length ? ' · Savaşta: ' + g.enemiesOf(t).map((a) => esc(g.nation(a).name)).join(', ') : ''}</p>
             <div class="actions">
               ${war ? `
@@ -642,6 +668,8 @@
         case 'sendGift': res = g.sendGift(me, t, 50); break;
         case 'peace': res = g.offerPeace(me, t, data.type); break;
         case 'stance': res = g.setWarStance(me, t, data.stance); break;
+        case 'build': res = g.build(me, Number(data.pid), data.type); break;
+        case 'closeProvince': this.provinceSel = null; this.renderSide(); return;
         case 'selectStack': this.selectStack(Number(data.stack), true); return;
         case 'splitStack': res = MH.armies.splitStack(g, Number(data.stack)); break;
         case 'mergeStack': res = MH.armies.mergeStacks(g, Number(data.stack)); break;
@@ -723,12 +751,52 @@
         return;
       }
       if (this.mode !== 'play') return;
+      this.provinceSel = pid;
       if (owner === this.game.state.playerId) {
         this.target = null;
         this.map.select(null);
         this.tab = 'overview';
         this.renderSide();
+        $('#tab-body').scrollTop = 0;
       } else this.selectTarget(owner);
+    }
+
+    // ============================================================ eyaletler ve yapılar
+    _provinceHtml(pid, editable) {
+      const g = this.game;
+      const owner = g.state.owner[pid];
+      const nat = g.nation(owner);
+      const built = g.state.buildings[pid] || [];
+      const building = g.underConstruction(pid);
+      const sg = g.state.sieges?.[pid];
+      const tags = [
+        nat.capital === pid && '★ Başkent',
+        g.grid.provinces[pid].coastal && '⚓ Kıyı',
+        'Gelişim ' + g.state.dev[pid],
+      ].filter(Boolean).join(' · ');
+      const builtHtml = built.length
+        ? built.map((t) => `<span class="chip">${MH.BUILDINGS[t].icon} ${MH.BUILDINGS[t].label}</span>`).join('')
+        : building.length ? '' : '<span class="muted small">Yapı yok</span>';
+      const constructionHtml = building.map((c) => `<span class="chip warn">🔨 ${MH.BUILDINGS[c.type].label} · ${c.done - g.state.day} gün</span>`).join('');
+      let actions = '';
+      if (editable) {
+        actions = `<div class="build-grid">${Object.entries(MH.BUILDINGS).map(([type, def]) => {
+          const has = built.includes(type);
+          const busy = building.some((c) => c.type === type);
+          const cost = g.buildingCost(pid, type);
+          const disabled = has || busy || !!sg || g.player.gold < cost;
+          const note = has ? 'Mevcut' : busy ? 'İnşa ediliyor' : cost + ' altın · ' + def.days + ' gün';
+          return `<button class="build" data-act="build" data-pid="${pid}" data-type="${type}" ${disabled ? 'disabled' : ''} title="${esc(def.desc)}">
+            <b>${def.icon} ${def.label}</b><small>${esc(def.desc)}</small><span>${note}</span></button>`;
+        }).join('')}</div>`;
+      }
+      return `<section class="card province">
+        <div class="prov-head"><div><h3>📍 ${esc(MH.places.nameOf(g, pid))}</h3><p class="muted small">${esc(nat.name)} · ${tags}</p></div>
+          <button class="btn tiny ghost" data-act="closeProvince" aria-label="Kapat">✕</button></div>
+        ${sg ? `<p class="tone-bad small">Kuşatma altında: ${esc(g.nation(sg.by).name)} %${Math.min(99, Math.round((sg.progress / sg.needed) * 100))}</p>` : ''}
+        <div class="flags">${builtHtml}${constructionHtml}</div>
+        ${actions}
+      </section>`;
     }
 
     // ============================================================ ordular
@@ -743,7 +811,17 @@
         else this.selectTarget(stack.owner);
         return;
       }
-      this.selectStack(this.selectedStack === sid ? null : sid);
+      if (this.selectedStack === sid) {
+        // Seçili orduya ikinci tıklama: seçimi bırak ve bulunduğu eyaleti göster
+        this.selectStack(null);
+        if (g.state.owner[stack.prov] === g.state.playerId) {
+          this.provinceSel = stack.prov;
+          this.tab = 'overview';
+          this.renderSide();
+        }
+        return;
+      }
+      this.selectStack(sid);
     }
 
     selectStack(sid, focus = false) {
@@ -789,7 +867,7 @@
           const here = stacks.filter((x) => x !== s && x.prov === s.prov).length;
           return `<li class="${s.id === this.selectedStack ? 'selected' : ''}">
             <div class="sl-head"><b>${esc(s.name)}</b><span>${soldiers(s.size)}</span></div>
-            <div class="sl-status ${st.kind}">${esc(st.text)} · ${esc(g.nation(g.state.owner[s.prov]).name)}</div>
+            <div class="sl-status ${st.kind}">${esc(st.text)} · 📍 ${esc(MH.places.nameOf(g, s.prov))}</div>
             <div class="btn-row">
               <button class="btn tiny ${s.id === this.selectedStack ? 'primary' : ''}" data-act="selectStack" data-stack="${s.id}">${s.id === this.selectedStack ? 'Seçili' : 'Seç'}</button>
               <button class="btn tiny ghost" data-act="autoStack" data-stack="${s.id}" data-auto="${s.auto ? '0' : '1'}">${s.auto ? '🤖 Otomatik' : '🎖️ Manuel'}</button>
@@ -829,7 +907,8 @@
       const sg = g.state.sieges?.[pid];
       if (sg) extra += `<div class="tone-warn">Kuşatma altında (${esc(g.nation(sg.by).name)}): %${Math.min(99, Math.round((sg.progress / sg.needed) * 100))}</div>`;
       if (this.selectedStack && this.mode === 'play') extra += '<div class="tone-info">Tıkla: seçili orduyu buraya gönder</div>';
-      tip.innerHTML = `<b>${esc(n.name)}</b><div class="muted">${esc(n.leader)}</div><div>Eyalet gelişimi: ${g.state.dev[pid]}${n.capital === pid ? ' · ★ başkent' : ''}</div>${extra}`;
+      const built = (g.state.buildings[pid] || []).map((t) => MH.BUILDINGS[t].icon + ' ' + MH.BUILDINGS[t].label).join(' · ');
+      tip.innerHTML = `<b>📍 ${esc(MH.places.nameOf(g, pid))}</b><div>${esc(n.name)} <span class="muted">· ${esc(n.leader)}</span></div><div>Gelişim: ${g.state.dev[pid]}${n.capital === pid ? ' · ★ başkent' : ''}</div>${built ? `<div>${built}</div>` : ''}${extra}`;
       this._placeTip(e);
     }
 
@@ -941,7 +1020,7 @@
       t.className = 'toast ' + tone;
       t.innerHTML = `<b>${esc(title)}</b>${effectList(effects)}`;
       box.prepend(t);
-      while (box.children.length > 5) box.lastChild.remove();
+      while (box.children.length > 3) box.lastChild.remove();
       setTimeout(() => t.classList.add('out'), 4800);
       setTimeout(() => t.remove(), 5400);
     }

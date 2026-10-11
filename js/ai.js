@@ -12,6 +12,7 @@
     for (const nat of game.aliveNations()) {
       if (nat.id === pid) continue;
       recruit(game, nat);
+      invest(game, nat);
       seekPeace(game, nat);
       if (game.random() < 0.04) considerWar(game, nat);
       if (game.random() < 0.04) seekFriends(game, nat);
@@ -32,6 +33,29 @@
     if (game.warsOf(nat.id).length && nat.manpower < 5 && nat.gold > 250 && nat.army < cap) game.hireMercenaries(nat.id, 5);
     if (nat.stability < 40 && nat.gold > game.festivalCost(nat.id) + 100) game.holdFestival(nat.id);
     if (game.budget(nat.id).total < 0 && nat.gold < 50 && nat.army > 10) game.disband(nat.id, 5);
+  }
+
+  /** Barış zamanında artan altını yapılara yatırır */
+  function invest(game, nat) {
+    if (game.warsOf(nat.id).length || nat.gold < 220 || game.random() > 0.3) return;
+    const busy = new Set(game.state.construction.filter((c) => c.owner === nat.id).map((c) => c.pid));
+    if (busy.size >= 2) return;
+    const provs = game.provincesOf(nat.id).sort((a, b) => game.state.dev[b] - game.state.dev[a]);
+    let type = 'market';
+    const r = game.random();
+    if (nat.stability < 50 && game.buildingsOf(nat.id, 'temple').length < 6) type = 'temple';
+    else if (r < 0.2) type = 'barracks';
+    else if (r < 0.35) type = 'fort';
+    let candidates = provs;
+    if (type === 'fort') {
+      // Önce başkent, sonra sevilmeyen komşulara bakan zengin sınır eyaletleri
+      const rivals = new Set(game.neighborsOf(nat.id).filter((n) => game.opinion(nat.id, n) <= -20));
+      const border = provs.filter((p) => game.grid.provinces[p].neighbors.some((nb) => rivals.has(game.state.owner[nb])));
+      candidates = [nat.capital, ...border];
+    }
+    const pid = candidates.find((p) => game.state.owner[p] === nat.id && !game.hasBuilding(p, type) && !busy.has(p));
+    if (pid === undefined) return;
+    if (game.buildingCost(pid, type) < nat.gold - 120) game.build(nat.id, pid, type);
   }
 
   function seekPeace(game, nat) {
