@@ -228,8 +228,23 @@ test('AC 4.1 — belirli aralıklarla rastgele olaylar oyuncuya gelir', () => {
       game.resolveEvent(0);
     }
   }
-  const random = seen.filter((e) => !MH.events.BY_ID[e.eventId].date);
-  assert.ok(random.length >= 4, '4 yılda en az 4 rastgele olay beklenir, gelen: ' + random.length);
+  const random = seen.filter((e) => {
+    const ev = MH.events.BY_ID[e.eventId];
+    return !ev.date && !ev.dynamic;
+  });
+  assert.ok(random.length >= 6, '4 yılda en az 6 rastgele olay beklenir, gelen: ' + random.length);
+  for (const sc of MH.SCENARIOS) {
+    const g = newGame(sc.id, sc.nations[0].id);
+    let count = 0;
+    for (let i = 0; i < 365 * 2 && !g.state.gameOver; i++) {
+      g.tick();
+      while (g.currentEvent()) {
+        if (!MH.events.BY_ID[g.currentEvent().eventId].date) count++;
+        g.resolveEvent(0);
+      }
+    }
+    assert.ok(count >= 2, sc.id + ': 2 yılda en az 2 olay beklenir, gelen: ' + count);
+  }
 });
 
 test('AC 4.1 — tarihî olaylar kendi tarihinde tetiklenir', () => {

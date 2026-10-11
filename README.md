@@ -43,7 +43,19 @@ olarak Sultan'a haraç öderseniz kuşatma hiç gerçekleşmez; 1914'te Avustury
 | 3.1 | Üst çubukta duraklat + 3 hız; boşluk ve 1–3 kısayolları; olay geldiğinde zaman otomatik durur | `setSpeed`, `ui.js` `_loop` | `AC 3.1` ×2 |
 | 3.2 | Kazanılan muharebeler eyaletleri anında el değiştirir; altıgen rengi, ülke sınırları, etiketler ve başkentler yeniden çizilir, fethedilen eyalet parlar. Düşman toprakları taralı gösterilir | `transferProvince`, `MapView` | `AC 3.2` ×2 |
 | 4.1 | Aylık %50 şansla (en az 60 gün arayla) rastgele olay; ayrıca tarihe bağlı olaylar. Olay penceresi oyunu duraklatır | `events.js` `checkRandom`, `checkScheduled` | `AC 4.1` ×2 |
-| 4.2 | 37 olayın tamamında en az 2 (bazılarında 3) seçenek; her seçeneğin etkisi önceden gösterilir, bazılarının sonucu zarla belirlenir | `events.js` `apply`, `preview` | `AC 4.2` ×3 |
+| 4.2 | 38 olayın tamamında en az 2 (bazılarında 3) seçenek; her seçeneğin etkisi önceden gösterilir, bazılarının sonucu zarla belirlenir | `events.js` `apply`, `preview` | `AC 4.2` ×3 |
+
+## Hikâyeniz: hedefler, kronik ve senaryo sonu
+
+User Story'nin *"kendi imparatorluğumu ve hikâyemi yaratabileyim"* kısmı için:
+
+- **Hedefler:** Her ulusun "senaryo sonuna kadar ayakta kal" ve "sınırlarını genişlet" hedefleri vardır. 34 ulusun ayrıca tarihî
+  hedefleri bulunur (ör. Osmanlı: Konstantinopolis, Belgrad, Karaman; Fransa 1914: Alsas-Loren). Hedefler ulus seçerken görünür,
+  oyun sırasında *Ülke* sekmesinde ilerlemesi izlenir.
+- **Kronik:** Savaşlar, barışlar, olay kararları, kayıp/fethedilen başkentler ve tamamlanan hedefler *Günlük → Kroniğim*
+  bölümünde kişisel bir zaman çizelgesi olarak birikir.
+- **Senaryo sonu:** 1453 → 1520, 1815 → 1850, 1914 → 1925. Bitişte (ya da yenilgide) tarih puanı, rütbe
+  (*Unutulan Hanedan … Efsanevi İmparatorluk*), hedefler ve kronik gösterilir; isterseniz oynamaya devam edebilirsiniz.
 
 ## Oyun mekaniği özeti
 
@@ -51,11 +63,26 @@ olarak Sultan'a haraç öderseniz kuşatma hiç gerçekleşmez; 1914'te Avustury
   başkentlerden ve tarihî tohum noktalarından genişleyen ağırlıklı bir yayılımla oluşturulur (aynı senaryo hep aynı haritayla başlar).
 - **Ekonomi:** Gelir = gelişim × vergi × istikrar çarpanı + ticaret − ordu bakımı. Hazine eksiye düşerse askerler firar eder.
 - **İstikrar:** Vergi, savaş sayısı, savaş yorgunluğu ve üretim odağına göre bir hedefe doğru ayda en fazla 3 puan kayar.
-- **Savaş:** Ordular cephe sayısına bölünür; muharebeyi güç oranı, ordu kalitesi ve savunma avantajı belirler.
-  Saldıran taraf kazanırsa sınır eyaletini ele geçirebilir; başkentler surlarla korunur. Tüm topraklarını kaybeden ulus yok olur.
-- **Yapay zekâ:** Asker toplar, zayıf ve sevmediği komşularına savaş açar, kaybederken barış ister (size olay olarak gelir),
-  dostlarıyla ticaret ve ittifak kurar, size ittifak teklif edebilir.
+- **Savaş:** Ordular cephelere duruşa göre bölünür. *Taarruz* orduyu o cepheye yoğunlaştırır, daha sık saldırır ve daha çok toprak
+  alır ama daha çok kayıp verir; *Savunma* tahkimatla düşman saldırılarını zorlaştırır. Muharebeyi güç oranı, ordu kalitesi ve
+  savunma avantajı belirler. Başkentler surlarla korunur, son kale daha da zor düşer. Tüm topraklarını kaybeden ulus yok olur.
+- **Altın harcama:** İnsan gücü tükendiğinde *paralı asker* (3 kat pahalı) kiralanabilir; *şenlik* yılda bir altın karşılığında
+  istikrar kazandırır.
+- **Yapay zekâ:** Asker toplar, cephe duruşu seçer, zayıf ve sevmediği komşularına savaş açar, kaybederken barış ister,
+  kazanırken şartlarını dayatır (ikisi de size olay olarak gelir), dostlarıyla ticaret ve ittifak kurar, size ittifak teklif edebilir.
 - **Kayıt:** Oyun tarayıcıya kaydedilir (`localStorage`); ana menüden devam edilebilir.
+
+## Denge testi
+
+Her senaryodaki her ulus, 15 yıl boyunca iki farklı botla otomatik oynatıldı:
+
+| Oyuncu tipi | 1453 hayatta kalan | 1815 | 1914 |
+| ----------- | ------------------ | ---- | ---- |
+| Aktif bot (vergi/istikrar dengesi, asker, barış, cephe duruşu) | 44/48 | 26/28 | 20/22 |
+| Pasif bot (hiçbir karar vermez) | 22/48 | 16/28 | 16/22 |
+
+Yani kararlar belirleyici, ama hareketsiz kalan büyük devletler de birkaç yılda çökmez. En zor başlangıçlar: 1914 Karadağ ve
+Belçika, 1453 Arnavutluk ve Bizans, 1815 Saksonya. Aktif bot ortalama 29–35 tarih puanı alıyor.
 
 ## Proje yapısı
 
@@ -67,14 +94,15 @@ js/scenarios.js     1453 / 1815 / 1914 senaryo verileri
 js/engine.js        Oyun durumu: ekonomi, diplomasi, savaş, zaman, kayıt
 js/ai.js            Yapay zekâ ulusların aylık kararları
 js/events.js        Tarihî, kurgusal ve yapay zekâ kaynaklı olaylar
+js/goals.js         Ulus hedefleri, kronik ve senaryo sonu değerlendirmesi
 js/map.js           SVG harita görünümü (yakınlaştırma, kaydırma, harita modları)
 js/ui.js            Menü, ulus seçimi, sekmeler, bildirimler
-tests/              Kabul kriterlerine göre düzenlenmiş Node testleri
+tests/              Kabul kriterleri ve ilerleme mekanikleri için Node testleri
 ```
 
-`engine.js`, `ai.js` ve `events.js` DOM'a bağımlı değildir; testler bunları doğrudan Node'da çalıştırır.
+`engine.js`, `ai.js`, `events.js` ve `goals.js` DOM'a bağımlı değildir; testler bunları doğrudan Node'da çalıştırır.
 
 ## Sonraki adımlar (öneri)
 
-Not'ta belirtildiği gibi modüller ayrı epiklere bölünebilir: ayrıntılı **Savaş Sistemi** (birlik türleri, ordu hareketi,
-kuşatma), **Diplomasi Ekranı** (antlaşma maddeleri, vasallık, toprak talebi), eyalet adları ve bina sistemi.
+Modüller ayrı epiklere bölünebilir: ayrıntılı **Savaş Sistemi** (birlik türleri, haritada ordu hareketi, kuşatma),
+**Diplomasi Ekranı** (antlaşma maddeleri, vasallık, barışta toprak talebi), eyalet adları ve bina/kalkınma sistemi.

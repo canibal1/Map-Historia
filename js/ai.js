@@ -28,6 +28,9 @@
       game.recruit(nat.id, 5);
       n++;
     }
+    // İnsan gücü tükenmiş zengin bir ülke savaşta paralı asker kiralar
+    if (game.warsOf(nat.id).length && nat.manpower < 5 && nat.gold > 250 && nat.army < cap) game.hireMercenaries(nat.id, 5);
+    if (nat.stability < 40 && nat.gold > game.festivalCost(nat.id) + 100) game.holdFestival(nat.id);
     if (game.budget(nat.id).total < 0 && nat.gold < 50 && nat.army > 10) game.disband(nat.id, 5);
   }
 
@@ -37,13 +40,21 @@
       const enemy = war.a === nat.id ? war.b : war.a;
       const score = game.warScore(war, nat.id);
       const months = (game.state.day - war.start) / 30;
+      // Cephe duruşu: güçlüyken taarruz, kaybederken savunma
+      const ratio = game.militaryStrength(nat.id) / Math.max(1, game.militaryStrength(enemy));
+      war.stance = war.stance || {};
+      war.stance[nat.id] = score <= -25 || ratio < 0.7 ? 'defensive' : ratio > 1.4 ? 'offensive' : 'balanced';
       if (enemy === pid) {
         // Kaybeden yapay zekâ oyuncuya barış teklif eder (olay olarak)
-        const already = game.state.eventQueue.some((e) => e.eventId === 'ai_peace_offer' && e.ctx.target === nat.id);
+        const already = game.state.eventQueue.some((e) => (e.eventId === 'ai_peace_offer' || e.eventId === 'ai_peace_demand') && e.ctx.target === nat.id);
         const cooldown = war.lastOffer && game.state.day - war.lastOffer < 120;
         if (!already && !cooldown && months >= 2 && (score <= -35 || nat.warExhaustion >= 60) && game.random() < 0.35) {
           war.lastOffer = game.state.day;
           game.queueEvent('ai_peace_offer', pid, { target: nat.id, pay: score <= -35 });
+        } else if (!already && !cooldown && months >= 4 && score >= 35 && game.random() < 0.35) {
+          // Kazanan yapay zekâ şartlarını dayatır
+          war.lastOffer = game.state.day;
+          game.queueEvent('ai_peace_demand', pid, { target: nat.id });
         }
         continue;
       }

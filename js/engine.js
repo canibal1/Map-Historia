@@ -24,6 +24,16 @@
     military: { label: 'Askeri', desc: '+%20 ordu kalitesi, −%25 asker toplama maliyeti, −İstikrar' },
   };
 
+  // weight: ordunun cepheye ayrılan payı · aggression: saldırı sıklığı
+  // defense: savunurken güç çarpanı · capture: kazanılan saldırıda toprak alma olasılığı
+  const STANCES = {
+    offensive: { label: 'Taarruz', desc: 'Ordunun daha büyük kısmı bu cepheye; sık saldırı, daha fazla kayıp', weight: 2, aggression: 3, defense: 1.15, capture: 0.75 },
+    balanced: { label: 'Dengeli', desc: 'Ordunun eşit payı; ölçülü saldırı ve savunma', weight: 1, aggression: 2, defense: 1.2, capture: 0.6 },
+    defensive: { label: 'Savunma', desc: 'Tahkimatlı hatlar; düşman saldırılarına karşı güçlü, nadiren saldırır', weight: 1, aggression: 1, defense: 1.45, capture: 0.5 },
+  };
+
+  const CHRONICLE_TYPES = { war: '⚔️', peace: '🕊️', event: '📜', player: '👑', goal: '🎯' };
+
   const PEACE_TYPES = {
     white: 'Beyaz Barış',
     demand: 'Tazminat Talep Et',
@@ -112,6 +122,12 @@
         scenarioId,
         day: parseDay(sc.startDate),
         startDay: parseDay(sc.startDate),
+        endDay: parseDay(sc.endDate),
+        ended: null,
+        goals: [],
+        startProvinces: 0,
+        beaten: [],
+        chronicle: [],
         rng: sc.seed,
         speed: 0,
         playerId: null,
@@ -124,7 +140,7 @@
         log: [],
         eventQueue: [],
         firedEvents: {},
-        lastEventDay: 0,
+        lastEventDay: parseDay(sc.startDate) - 30, // ilk rastgele olay ~1 ay sonra mümkün
         gameOver: null,
         nextWarId: 1,
       };
@@ -193,7 +209,16 @@
       if (!state || state.version !== 1 || !MH.getScenario(state.scenarioId)) throw new Error('Geçersiz kayıt dosyası');
       for (const nat of Object.values(state.nations)) {
         if (nat.focusChangedDay === null) nat.focusChangedDay = -Infinity;
+        if (nat.festivalDay === null) nat.festivalDay = -Infinity;
       }
+      const sc = MH.getScenario(state.scenarioId);
+      state.endDay ??= parseDay(sc.endDate);
+      state.ended ??= null;
+      state.goals ??= [];
+      state.beaten ??= [];
+      state.chronicle ??= [];
+      // Eski kayıtlarda 0 (1970) değeri tarihî tarihlerin ilerisinde kalıyordu
+      if (state.lastEventDay > state.day) state.lastEventDay = state.day - 30;
       return new Game(state);
     }
 
@@ -287,6 +312,12 @@
       const entry = { day: this.state.day, text, type, nations };
       this.state.log.unshift(entry);
       if (this.state.log.length > 200) this.state.log.length = 200;
+      // Kronik: oyuncunun hikâyesindeki önemli anlar (kırpılmaz)
+      const pid = this.state.playerId;
+      if (pid && nations.includes(pid) && CHRONICLE_TYPES[type]) {
+        this.state.chronicle.push({ day: entry.day, icon: CHRONICLE_TYPES[type], text });
+        if (this.state.chronicle.length > 400) this.state.chronicle.shift();
+      }
       this.emit('log', entry);
     }
 
@@ -459,6 +490,7 @@
       if (!nat || !nat.alive) throw new Error('Geçersiz ulus');
       this.state.playerId = id;
       this.addLog(nat.leader + ' liderliğinde ' + nat.name + ' yönetimi devralındı.', 'player', [id]);
+      MH.goals?.init(this);
     }
 
     /** AC 1.3 — seçilen ülkenin başlangıç durumunun özeti */
@@ -520,6 +552,7 @@
       const { d } = dayToDate(this.state.day);
       if (d === 1) this._monthly();
       MH.events?.checkScheduled(this);
+      if (!this.state.ended && this.state.playerId && this.state.day >= this.state.endDay) this.endScenario();
       this.emit('day', this.state.day);
     }
 
@@ -544,6 +577,7 @@
       }
       MH.ai?.monthly(this);
       MH.events?.checkRandom(this);
+      MH.goals?.check(this);
       this.emit('month', this.state.day);
     }
 
@@ -611,6 +645,35 @@
         effects.push(['Komşu ilişkileri', -2]);
       }
       return this._result(true, (amount * 1000).toLocaleString('tr-TR') + ' asker toplandı.', effects);
+    }
+
+    /** Paralı asker: insan gücü gerektirmez, ancak üç kat pahalıdır */
+    hireMercenaries(id, amount = 5) {
+      const nat = this.state.nations[id];
+      const cost = round1(amount * RECRUIT_COST * 3);
+      if (nat.gold < cost) return this._result(false, 'Paralı askerler için ' + cost + ' altın gerekli.');
+      nat.gold = round1(nat.gold - cost);
+      nat.army = round1(nat.army + amount);
+      return this._result(true, (amount * 1000).toLocaleString('tr-TR') + ' paralı asker kiralandı.', [['Ordu', amount, 'k'], ['Altın', -cost]]);
+    }
+
+    festivalCost(id) {
+      return Math.round(40 + this.totalDev(id) * 0.4);
+    }
+
+    /** Altın karşılığında halkın gönlünü kazanmak (yılda bir) */
+    holdFestival(id) {
+      const nat = this.state.nations[id];
+      const wait = (nat.festivalDay ?? -Infinity) + 365 - this.state.day;
+      if (wait > 0) return this._result(false, 'Yeni bir şenlik için ' + wait + ' gün beklenmeli.');
+      const cost = this.festivalCost(id);
+      if (nat.gold < cost) return this._result(false, 'Şenlik için ' + cost + ' altın gerekli.');
+      nat.gold = round1(nat.gold - cost);
+      nat.festivalDay = this.state.day;
+      nat.stability = clamp(nat.stability + 8, 0, 100);
+      nat.warExhaustion = clamp(nat.warExhaustion - 5, 0, 100);
+      this.addLog('Başkentte büyük bir şenlik düzenlendi.', 'good', [id]);
+      return this._result(true, 'Halk şenlikte coştu!', [['Altın', -cost], ['İstikrar', 8], ['Savaş yorgunluğu', -5]]);
     }
 
     disband(id, amount = 5) {
@@ -832,6 +895,8 @@
         a.stability = clamp(a.stability - 4, 0, 100);
         effects.push(['Altın', -amount], ['İstikrar', -4]);
       }
+      const pid = this.state.playerId;
+      if ((pid === from || pid === to) && this.warScore(war, pid) >= 20) this._recordWin(pid === from ? to : from);
       this._endWar(war);
       a.stability = clamp(a.stability + 2, 0, 100);
       a.warExhaustion = clamp(a.warExhaustion - 10, 0, 100);
@@ -861,49 +926,76 @@
       return [...targets];
     }
 
+    stanceOf(war, id) {
+      return war.stance?.[id] || 'balanced';
+    }
+
+    /** Bir cephedeki savaş duruşunu belirler: taarruz, dengeli veya savunma */
+    setWarStance(id, enemy, stance) {
+      const war = this.warBetween(id, enemy);
+      if (!war) return this._result(false, 'Bu ülkeyle savaşta değilsiniz.');
+      if (!STANCES[stance]) return this._result(false, 'Geçersiz duruş.');
+      war.stance = war.stance || {};
+      war.stance[id] = stance;
+      return this._result(true, this.state.nations[enemy].name + ' cephesi: ' + STANCES[stance].label, [[STANCES[stance].desc, null]]);
+    }
+
     _dailyCombat() {
       const wars = [...this.state.wars];
-      // Ordular yalnızca gerçek cephesi olan savaşlara bölünür
-      const fronts = {};
+      // Ordular yalnızca gerçek cephesi olan savaşlara, duruş ağırlığına göre bölünür
+      const active = [];
+      const weightSum = {};
       for (const w of wars) {
-        if (this._frontier(w.a, w.b).length || this._frontier(w.b, w.a).length) {
-          fronts[w.a] = (fronts[w.a] || 0) + 1;
-          fronts[w.b] = (fronts[w.b] || 0) + 1;
-        }
+        if (!this._frontier(w.a, w.b).length && !this._frontier(w.b, w.a).length) continue;
+        active.push(w);
+        for (const id of [w.a, w.b]) weightSum[id] = (weightSum[id] || 0) + STANCES[this.stanceOf(w, id)].weight;
       }
-      const share = (id) => Math.max(1, fronts[id] || 0);
-      for (const war of wars) {
+      const committed = (war, id) => {
+        const nat = this.state.nations[id];
+        return Math.max(0, nat.army) * (STANCES[this.stanceOf(war, id)].weight / (weightSum[id] || 1));
+      };
+      for (const war of active) {
         if (!this.state.wars.includes(war)) continue;
         const A = this.state.nations[war.a];
         const B = this.state.nations[war.b];
         if (!A.alive || !B.alive) continue;
-        if (this.random() > 0.08) continue;
+        const stA = STANCES[this.stanceOf(war, war.a)];
+        const stB = STANCES[this.stanceOf(war, war.b)];
+        if (this.random() > 0.08 * ((stA.aggression + stB.aggression) / 4)) continue;
         const frontB = this._frontier(war.a, war.b);
         const frontA = this._frontier(war.b, war.a);
         if (!frontA.length && !frontB.length) continue;
-        const sA = Math.max(0, A.army / share(war.a)) * this.quality(war.a);
-        const sB = Math.max(0, B.army / share(war.b)) * this.quality(war.b);
-        // Saldıran taraf rastgele seçilir; savunan kendi topraklarında %20 avantajlıdır
-        const aAttacks = this.random() < 0.5;
-        const eA = sA * (aAttacks ? 1 : 1.2);
-        const eB = sB * (aAttacks ? 1.2 : 1);
+        const cA = committed(war, war.a);
+        const cB = committed(war, war.b);
+        const sA = cA * this.quality(war.a);
+        const sB = cB * this.quality(war.b);
+        // Saldıran taraf duruşa göre seçilir; savunan kendi topraklarında avantajlıdır
+        const aAttacks = this.random() < stA.aggression / (stA.aggression + stB.aggression);
+        const eA = sA * (aAttacks ? 1 : stA.defense);
+        const eB = sB * (aAttacks ? stB.defense : 1);
         const pA = (eA ** 1.5 + 0.5) / (eA ** 1.5 + eB ** 1.5 + 1);
         const aWins = this.random() < pA;
-        const [win, lose, frontLose, sWin, sLose] = aWins ? [war.a, war.b, frontB, sA, sB] : [war.b, war.a, frontA, sB, sA];
+        const [win, lose, frontLose, sWin, sLose, cWin, cLose] = aWins
+          ? [war.a, war.b, frontB, sA, sB, cA, cB]
+          : [war.b, war.a, frontA, sB, sA, cB, cA];
         const W = this.state.nations[win];
         const L = this.state.nations[lose];
-        const lossL = round1(Math.min(L.army, (L.army / share(lose)) * (0.06 + this.random() * 0.08) + 0.5));
-        const lossW = round1(Math.min(W.army, (W.army / share(win)) * (0.02 + this.random() * 0.04) * (sLose / Math.max(1, sWin + sLose)) * 2));
+        const attacker = aAttacks ? war.a : war.b;
+        const attackerWon = attacker === win;
+        const lossMult = (id) => (this.stanceOf(war, id) === 'offensive' && id === attacker ? 1.2 : 1);
+        const lossL = round1(Math.min(L.army, cLose * (0.06 + this.random() * 0.08) * lossMult(lose) + 0.5));
+        const lossW = round1(Math.min(W.army, cWin * (0.02 + this.random() * 0.04) * (sLose / Math.max(1, sWin + sLose)) * 2 * lossMult(win)));
         L.army = round1(L.army - lossL);
         W.army = round1(W.army - lossW);
         war.battles[win] = (war.battles[win] || 0) + 1;
         if (lose === this.state.playerId || win === this.state.playerId) {
           L.warExhaustion = clamp(L.warExhaustion + 1, 0, 100);
         }
-        const attackerWon = aWins === aAttacks;
-        if (frontLose.length && attackerWon && this.random() < 0.6) this._capture(war, win, lose, frontLose);
+        const captureChance = STANCES[this.stanceOf(war, win)].capture;
+        let captured = null;
+        if (frontLose.length && attackerWon && this.random() < captureChance) captured = this._capture(war, win, lose, frontLose);
         if (win === this.state.playerId || lose === this.state.playerId) {
-          this.emit('battle', { war, winner: win, loser: lose, lossW, lossL });
+          this.emit('battle', { war, winner: win, loser: lose, lossW, lossL, captured });
         }
       }
     }
@@ -916,8 +1008,10 @@
       options.sort((x, y) => this.state.dev[x] - this.state.dev[y]);
       const pid = options[Math.floor(this.random() * Math.min(3, options.length))];
       // Başkentler surlarla korunur; düşmeleri daha zordur
-      if (pid === L.capital && this.random() > 0.3) return;
+      const lastStand = this.provincesOf(loser).length === 1;
+      if (pid === L.capital && this.random() > (lastStand ? 0.15 : 0.3)) return null;
       this.transferProvince(pid, winner, war);
+      return pid;
     }
 
     /** Eyaletin sahibini değiştirir ve haritayı anında günceller */
@@ -961,12 +1055,27 @@
       for (const other of [...nat.trade]) this._unlink(id, other, 'trade');
       this.state.eventQueue = this.state.eventQueue.filter((e) => e.ctx?.target !== id);
       this.addLog(nat.name + ' tarih sahnesinden silindi! (' + this.state.nations[by].name + ' tarafından)', 'war', [id, by]);
+      if (by === this.state.playerId) this._recordWin(id);
       this.emit('wars', null);
       if (id === this.state.playerId) {
         this.state.gameOver = { type: 'defeat', day: this.state.day, by };
+        this.state.ended = MH.goals?.evaluate(this) || null;
         this.state.speed = 0;
         this.emit('gameover', this.state.gameOver);
       }
+    }
+
+    _recordWin(enemy) {
+      if (!this.state.beaten.includes(enemy)) this.state.beaten.push(enemy);
+    }
+
+    /** Senaryo bitiş tarihine ulaşıldı: sonuçları değerlendirir; oyuncu isterse devam edebilir */
+    endScenario() {
+      this.state.ended = MH.goals ? MH.goals.evaluate(this) : { day: this.state.day };
+      this.addLog('📜 ' + this.scenario.title + ' senaryosu sona erdi.', 'player', [this.state.playerId]);
+      this.state.speed = 0;
+      this.emit('speed', 0);
+      this.emit('scenarioEnd', this.state.ended);
     }
 
     /** Farklı sahipli komşu eyaletler arasındaki sınır kenarları (harita çizimi için) */
@@ -1066,5 +1175,6 @@
   MH.Game = Game;
   MH.FOCUS = FOCUS;
   MH.PEACE_TYPES = PEACE_TYPES;
+  MH.STANCES = STANCES;
   MH.util = { clamp, round1, parseDay, dayToDate, formatDay, pairKey, MONTHS, SPEEDS };
 })((globalThis.MH = globalThis.MH || {}));

@@ -358,6 +358,21 @@
       ],
     },
     {
+      id: 'ai_peace_demand',
+      dynamic: true,
+      icon: '📯',
+      title: 'Teslim Şartları',
+      text: (game, ctx) => name(game, ctx.target) + ' elçisi savaşı kazandıklarını söylüyor ve ağır bir tazminat karşılığında barış öneriyor. Reddederseniz ordular ilerlemeye devam edecek.',
+      options: [
+        {
+          text: 'Tazminatı öde ve barış yap',
+          hint: 'Hazinenin %30\'u gider, 5 yıllık ateşkes',
+          run: (game, id, ctx) => (game.warBetween(id, ctx.target) ? game.offerPeace(id, ctx.target, 'offer', true).effects : []),
+        },
+        { text: 'Asla! Son nefese kadar savaş', effects: { stability: 4, warExhaustion: 4, opinionTarget: -10 } },
+      ],
+    },
+    {
       id: 'ai_alliance_offer',
       dynamic: true,
       icon: '🤝',

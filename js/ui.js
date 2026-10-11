@@ -147,6 +147,8 @@
         this.flashBattle(won ? '🏆 ' + other + ' ordusu yenildi (−' + soldiers(lossL) + ')' : '💥 ' + other + ' karşısında yenilgi (−' + soldiers(lossL) + ')', won);
       });
       game.on('month', () => { this._dirtySide = true; });
+      game.on('goal', (goal) => this.toast('🎯 Hedef tamamlandı', [[goal.label, null]], 'good'));
+      game.on('scenarioEnd', () => this.showEnding());
       game.on('province', () => { this._dirtySide = true; });
     }
 
@@ -175,7 +177,7 @@
           <button class="btn small ghost" id="pick-back">← Dönemler</button>
           <h2>${g.scenario.year} · ${esc(g.scenario.title)}</h2>
         </div>
-        ${sel ? this._summaryHtml(sel, true) : '<p class="muted pad">Kontrol etmek istediğiniz ülkeyi seçin. Büyük güçler daha kolay, küçük devletler daha zorlu bir başlangıç sunar.</p>'}
+        ${sel ? this._summaryHtml(sel, true, this._goalsHtml(MH.goals.goalsFor(g, sel.id), false)) : '<p class="muted pad">Kontrol etmek istediğiniz ülkeyi seçin. Büyük güçler daha kolay, küçük devletler daha zorlu bir başlangıç sunar.</p>'}
         <h3 class="list-title">Uluslar ve liderler</h3>
         <ul class="nation-list">
           ${nations.map((n) => `
@@ -209,7 +211,7 @@
       return ['Zor', 'bad'];
     }
 
-    _summaryHtml(s, pickMode) {
+    _summaryHtml(s, pickMode, extra = '') {
       const [diff, diffTone] = this._difficulty(s);
       const chips = (arr, tone) => (arr.length ? arr.map((x) => `<span class="chip ${tone}">${esc(x)}</span>`).join('') : '<span class="muted">—</span>');
       const rel = (arr, tone) => (arr.length ? arr.map((x) => `<span class="chip ${tone}">${esc(x.name)} <b>${x.value > 0 ? '+' : ''}${x.value}</b></span>`).join('') : '<span class="muted">—</span>');
@@ -246,6 +248,7 @@
             <div><span>Rakipler</span><div>${rel(s.rivals, 'bad')}</div></div>
             <div><span>Komşular</span><div>${chips(s.neighbors.slice(0, 8), '')}${s.neighbors.length > 8 ? ' <span class="muted">+' + (s.neighbors.length - 8) + '</span>' : ''}</div></div>
           </div>
+          ${extra}
           ${pickMode ? `<button class="btn primary wide" id="pick-start">▶ ${esc(s.name)} olarak başla</button>` : ''}
         </div>`;
     }
@@ -371,7 +374,9 @@
 
     _overviewTab() {
       const g = this.game;
-      return this._summaryHtml(g.summary(g.state.playerId), false) +
+      const ended = g.state.ended && !g.state.gameOver
+        ? `<button class="btn wide" data-act="showEnding">📜 Senaryo sonucunu yeniden gör</button>` : '';
+      return this._summaryHtml(g.summary(g.state.playerId), false, this._goalsHtml(g.state.goals, true) + ended) +
         `<p class="muted pad small">İpucu: Haritadaki bir ülkeye tıklayarak diplomasi ekranını açın. Harita modunu "Diplomatik" yaparak komşularınızın size karşı tutumunu görün.</p>`;
     }
 
@@ -399,6 +404,15 @@
             <tr class="total"><td>Net</td><td class="tone-${b.total >= 0 ? 'good' : 'bad'}">${signed(b.total)}</td></tr>
           </table>
           <p class="muted small">İstikrar hedefi: <b>${g.stabilityTarget(p.id)}</b> · İnsan gücü artışı: +${soldiers(g.manpowerGrowth(p.id))}/ay</p>
+        </section>
+        <section class="card">
+          <h3>Halkın gönlü</h3>
+          ${(() => {
+            const wait = Math.max(0, Math.ceil((p.festivalDay ?? -Infinity) + 365 - g.state.day));
+            const cost = g.festivalCost(p.id);
+            return `<div class="btn-row"><button class="btn" data-act="festival" ${wait || p.gold < cost ? 'disabled' : ''}>🎉 Şenlik düzenle <small>${cost} altın</small></button></div>
+              <p class="muted small">${wait ? 'Yeni şenlik için ' + wait + ' gün beklenmeli.' : 'İstikrar +8, savaş yorgunluğu −5. Yılda bir kez.'}</p>`;
+          })()}
         </section>
         <section class="card">
           <h3>Üretim odağı</h3>
@@ -437,6 +451,9 @@
             ${[5, 10, 20].map((n) => `<button class="btn" data-act="recruit" data-n="${n}" ${p.manpower < n || p.gold < n * cost ? 'disabled' : ''}>+${soldiers(n)} <small>${num(n * cost)} altın</small></button>`).join('')}
             <button class="btn ghost" data-act="disband" data-n="5" ${p.army < 5 ? 'disabled' : ''}>−${soldiers(5)} terhis</button>
           </div>
+          <div class="btn-row">
+            <button class="btn" data-act="mercs" data-n="5" ${p.gold < 75 ? 'disabled' : ''} title="İnsan gücü gerektirmez">🗡️ Paralı asker +${soldiers(5)} <small>75 altın</small></button>
+          </div>
           <p class="muted small">Her bin asker ayda 0,18 altın bakım ister. Ordu, cephe sayısına bölünerek savaşır.</p>
         </section>
         <section class="card">
@@ -449,6 +466,9 @@
               <div class="war">
                 <div class="war-head"><span class="swatch" style="background:${g.nation(enemy).color}"></span><b>${esc(g.nation(enemy).name)}</b>
                   <span class="muted small">${months} ay · ordu ${soldiers(g.nation(enemy).army)}</span></div>
+                <div class="stance" role="group" aria-label="Cephe duruşu">
+                  ${Object.entries(MH.STANCES).map(([k, st]) => `<button class="${g.stanceOf(w, p.id) === k ? 'active' : ''}" data-act="stance" data-stance="${k}" data-target="${enemy}" title="${st.desc}">${st.label}</button>`).join('')}
+                </div>
                 <div class="score-bar" title="Savaş skoru ${score}"><div style="left:${50 + Math.min(0, score) / 2}%;width:${Math.abs(score) / 2}%" class="${score >= 0 ? 'pos' : 'neg'}"></div><span>${score > 0 ? '+' : ''}${score}</span></div>
                 <div class="btn-row">
                   <button class="btn tiny" data-act="peace" data-type="white" data-target="${enemy}">Beyaz barış</button>
@@ -540,8 +560,33 @@
 
     _logTab() {
       const g = this.game;
-      return `<ul class="log">${g.state.log.slice(0, 120).map((e) => `
+      const view = this.logView || 'chronicle';
+      const toggle = `<div class="seg" role="group">
+          <button class="${view === 'chronicle' ? 'active' : ''}" data-act="logView" data-view="chronicle">Kroniğim</button>
+          <button class="${view === 'all' ? 'active' : ''}" data-act="logView" data-view="all">Tüm olaylar</button>
+        </div>`;
+      if (view === 'chronicle') return toggle + this._chronicleHtml(g.state.chronicle.slice().reverse());
+      return toggle + `<ul class="log">${g.state.log.slice(0, 120).map((e) => `
         <li class="log-${e.type}"><time>${MH.util.formatDay(e.day)}</time>${esc(e.text)}</li>`).join('')}</ul>`;
+    }
+
+    _chronicleHtml(entries) {
+      if (!entries.length) return '<p class="muted small pad">Hikâyeniz henüz yazılmadı.</p>';
+      return `<ol class="chronicle">${entries.map((e) => `
+        <li><span class="ch-icon">${e.icon}</span><div><time>${MH.util.formatDay(e.day)}</time>${esc(e.text)}</div></li>`).join('')}</ol>`;
+    }
+
+    /** Hedef listesi; live=true ise ilerleme işaretleri gösterilir */
+    _goalsHtml(goals, live) {
+      if (!goals?.length) return '';
+      const g = this.game;
+      return `<h4>Hedefler <small class="muted">· senaryo sonu ${MH.util.formatDay(g.state.endDay)}</small></h4>
+        <ul class="goals">${goals.map((goal) => {
+          const pending = live && !goal.done && (goal.type === 'hold' || goal.type === 'survive') && MH.goals.isMet(g, goal, true);
+          const cls = goal.done ? 'done' : pending ? 'pending' : '';
+          const mark = goal.done ? '✓' : pending ? '◐' : '○';
+          return `<li class="${cls}"><span>${mark}</span>${esc(goal.label)}${goal.done && goal.doneDay ? ` <small class="muted">${MH.util.formatDay(goal.doneDay)}</small>` : ''}</li>`;
+        }).join('')}</ul>`;
     }
 
     _bindTab() {
@@ -589,6 +634,11 @@
         case 'breakAlliance': res = g.breakAlliance(me, t); break;
         case 'sendGift': res = g.sendGift(me, t, 50); break;
         case 'peace': res = g.offerPeace(me, t, data.type); break;
+        case 'stance': res = g.setWarStance(me, t, data.stance); break;
+        case 'mercs': res = g.hireMercenaries(me, Number(data.n)); break;
+        case 'festival': res = g.holdFestival(me); break;
+        case 'showEnding': this.showEnding(); return;
+        case 'logView': this.logView = data.view; this.renderSide(); return;
         case 'clearTarget': this.selectTarget(null); return;
         case 'declareWar': this.confirmWar(t); return;
         default: return;
@@ -726,16 +776,44 @@
     }
 
     showGameOver() {
+      this._showResult(true);
+    }
+
+    showEnding() {
+      this._showResult(false);
+    }
+
+    /** Senaryo sonu veya yenilgi: puan, hedefler ve kronik (kişisel tarih) */
+    _showResult(defeat) {
       const g = this.game;
+      const r = g.state.ended || MH.goals.evaluate(g);
+      const p = g.player;
       const by = g.state.gameOver?.by ? g.nation(g.state.gameOver.by).name : '';
-      storage.set(SAVE_KEY, '');
+      if (defeat) storage.set(SAVE_KEY, '');
+      const beaten = r.beaten.map((id) => g.nation(id).name);
       this.modal(`
-        <div class="ev-icon">🏚️</div>
-        <h2>Bir devrin sonu</h2>
-        <p class="ev-text">${esc(g.player.name)}, ${esc(MH.util.formatDay(g.state.day))} tarihinde ${esc(by)} tarafından tarih sahnesinden silindi.</p>
-        <p class="muted">Ulaştığınız en geniş sınırlar: ${g.player.peakProvinces} eyalet · ${Math.floor((g.state.day - g.state.startDay) / 365)} yıl hüküm sürdünüz.</p>
-        <div class="btn-row end"><button class="btn primary" id="go-menu">Ana menü</button></div>`, { dismissable: false });
+        <div class="ev-icon">${defeat ? '🏚️' : '📜'}</div>
+        <p class="ev-date">${esc(g.scenario.title)} · ${MH.util.formatDay(r.day)}</p>
+        <h2>${defeat ? 'Bir devrin sonu' : esc(r.rank)}</h2>
+        <p class="ev-text">${defeat
+          ? esc(p.name + ', ' + by + ' tarafından tarih sahnesinden silindi.')
+          : esc(p.name + ' — ' + r.verdict)}</p>
+        <div class="result-grid">
+          <div><b>${r.score}</b><span>Tarih puanı</span></div>
+          <div><b>${r.goalsDone}/${r.goalsTotal}</b><span>Hedef</span></div>
+          <div><b>${r.startProvinces} → ${r.provinces}</b><span>Eyalet (en çok ${r.peakProvinces})</span></div>
+          <div><b>${r.years}</b><span>Yıl hüküm</span></div>
+        </div>
+        ${this._goalsHtml(g.state.goals, false)}
+        ${beaten.length ? `<p class="small">Yenilgiye uğrattıklarınız: ${beaten.map(esc).join(', ')}</p>` : ''}
+        <h4>Kroniğiniz</h4>
+        <div class="chronicle-box">${this._chronicleHtml(g.state.chronicle)}</div>
+        <div class="btn-row end">
+          ${defeat ? '' : '<button class="btn" id="keep-playing">Oynamaya devam et</button>'}
+          <button class="btn primary" id="go-menu">Ana menü</button>
+        </div>`, { dismissable: false, kind: 'result' });
       $('#go-menu').addEventListener('click', () => { this.closeModal(); this.showMenu(); });
+      $('#keep-playing')?.addEventListener('click', () => { this.closeModal(); this.refresh(); });
     }
 
     // ============================================================ ortak bileşenler
