@@ -22,7 +22,7 @@
       <h2 class="section-title">Bir dönem seç</h2>
       <div id="scenario-list" class="scenario-grid"></div>
       <footer class="menu-foot">
-        <span>Boşluk: duraklat/devam · 1–3: hız · Fare tekerleği: yakınlaştır · Sürükle: kaydır</span>
+        <span>Boşluk: duraklat/devam · 1–3: hız · Esc: ordu seçimini bırak · Fare tekerleği: yakınlaştır · Sürükle: kaydır</span>
       </footer>
     </div>
   </section>
@@ -53,6 +53,7 @@
         <div id="map-tooltip" hidden></div>
         <div id="paused-badge">DURAKLATILDI</div>
         <div id="battle-ticker"></div>
+        <div id="order-hint" hidden></div>
         <div class="map-controls">
           <select id="map-mode" aria-label="Harita modu">
             <option value="political">Siyasi harita</option>
@@ -100,6 +101,7 @@
   <script src="js/ai.js"></script>
   <script src="js/events.js"></script>
   <script src="js/goals.js"></script>
+  <script src="js/armies.js"></script>
   <script src="js/map.js"></script>
   <script src="js/ui.js"></script>
 </body>

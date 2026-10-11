@@ -128,6 +128,9 @@
         startProvinces: 0,
         beaten: [],
         chronicle: [],
+        stacks: [],
+        sieges: {},
+        nextStackId: 1,
         rng: sc.seed,
         speed: 0,
         playerId: null,
@@ -217,6 +220,9 @@
       state.goals ??= [];
       state.beaten ??= [];
       state.chronicle ??= [];
+      state.stacks ??= [];
+      state.sieges ??= {};
+      state.nextStackId ??= 1;
       // Eski kayıtlarda 0 (1970) değeri tarihî tarihlerin ilerisinde kalıyordu
       if (state.lastEventDay > state.day) state.lastEventDay = state.day - 30;
       return new Game(state);
@@ -491,6 +497,7 @@
       this.state.playerId = id;
       this.addLog(nat.leader + ' liderliğinde ' + nat.name + ' yönetimi devralındı.', 'player', [id]);
       MH.goals?.init(this);
+      MH.armies?.init(this);
     }
 
     /** AC 1.3 — seçilen ülkenin başlangıç durumunun özeti */
@@ -549,6 +556,7 @@
       if (this.state.gameOver) return;
       this.state.day += 1;
       this._dailyCombat();
+      MH.armies?.daily(this);
       const { d } = dayToDate(this.state.day);
       if (d === 1) this._monthly();
       MH.events?.checkScheduled(this);
@@ -954,8 +962,11 @@
         const nat = this.state.nations[id];
         return Math.max(0, nat.army) * (STANCES[this.stanceOf(war, id)].weight / (weightSum[id] || 1));
       };
+      const pid = this.state.playerId;
       for (const war of active) {
         if (!this.state.wars.includes(war)) continue;
+        // Oyuncunun savaşları haritadaki ordularla yürür (armies.js)
+        if (MH.armies && pid && (war.a === pid || war.b === pid)) continue;
         const A = this.state.nations[war.a];
         const B = this.state.nations[war.b];
         if (!A.alive || !B.alive) continue;
@@ -1054,6 +1065,7 @@
       for (const other of [...nat.allies]) this._unlink(id, other, 'allies');
       for (const other of [...nat.trade]) this._unlink(id, other, 'trade');
       this.state.eventQueue = this.state.eventQueue.filter((e) => e.ctx?.target !== id);
+      MH.armies?.cleanup(this, id);
       this.addLog(nat.name + ' tarih sahnesinden silindi! (' + this.state.nations[by].name + ' tarafından)', 'war', [id, by]);
       if (by === this.state.playerId) this._recordWin(id);
       this.emit('wars', null);

@@ -41,6 +41,7 @@
         this.dirty.borders = true;
         this.requestRender();
       });
+      game.on('day', () => this.requestStacks());
       game.on('month', () => {
         if (this.mode === 'diplomatic') {
           this.dirty.fills = true;
@@ -98,6 +99,8 @@
       this.selectPath = el('path', { class: 'select-outline' }, this.root);
       this.capitalLayer = el('g', { class: 'capitals' }, this.root);
       this.labelLayer = el('g', { class: 'labels' }, this.root);
+      this.pathLayer = el('g', { class: 'army-paths' }, this.root);
+      this.stackLayer = el('g', { class: 'stacks' }, this.root);
 
       let coast = '';
       this.edges.forEach((edges) => {
@@ -247,6 +250,61 @@
       }
     }
 
+    // ------------------------------------------------------------ ordular
+    requestStacks() {
+      if (this._stackRaf) return;
+      const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (fn) => setTimeout(fn, 16);
+      this._stackRaf = raf(() => {
+        this._stackRaf = null;
+        this.renderStacks();
+      });
+    }
+
+    selectStack(id) {
+      this.selectedStack = id;
+      this.renderStacks();
+    }
+
+    renderStacks() {
+      const g = this.game;
+      const stacks = g.state.stacks || [];
+      const { provinces } = this.grid;
+      const pid = g.state.playerId;
+      this.stackLayer.innerHTML = '';
+      this.pathLayer.innerHTML = '';
+      const slot = new Map();
+      for (const s of stacks) {
+        const p = provinces[s.prov];
+        const k = slot.get(s.prov) || 0;
+        slot.set(s.prov, k + 1);
+        const x = p.x + (k % 2 ? 9 : 0) * (k ? 1 : 0);
+        const y = p.y - 2 + k * 8;
+        const mine = s.owner === pid;
+        if (mine && s.path.length) {
+          const pts = [[p.x, p.y], ...s.path.map((i) => [provinces[i].x, provinces[i].y])];
+          el('polyline', {
+            points: pts.map((q) => f(q[0]) + ',' + f(q[1])).join(' '),
+            class: 'army-path' + (s.id === this.selectedStack ? ' selected' : ''),
+          }, this.pathLayer);
+          const end = pts[pts.length - 1];
+          el('circle', { cx: f(end[0]), cy: f(end[1]), r: 2.4, class: 'army-path-end' }, this.pathLayer);
+        }
+        const st = MH.armies.status(g, s);
+        const cls = ['stack', mine ? 'mine' : 'foe', st.kind, s.id === this.selectedStack ? 'selected' : '', s.auto && mine ? 'auto' : '']
+          .filter(Boolean).join(' ');
+        const node = el('g', { class: cls, 'data-stack': s.id, transform: 'translate(' + f(x) + ',' + f(y) + ')' }, this.stackLayer);
+        el('rect', { x: -13, y: -7, width: 26, height: 13, rx: 3, fill: g.nation(s.owner).color }, node);
+        const t = el('text', { x: 0, y: 0.5 }, node);
+        t.textContent = s.size >= 1 ? Math.round(s.size) + 'k' : '<1k';
+        if (st.kind === 'siege') {
+          const sg = g.state.sieges[s.prov];
+          const pct = Math.min(1, sg.progress / sg.needed);
+          el('rect', { x: -13, y: 7.5, width: 26, height: 3, class: 'siege-bg' }, node);
+          el('rect', { x: -13, y: 7.5, width: f(26 * pct), height: 3, class: 'siege-fg' }, node);
+        }
+      }
+    }
+
     setMode(mode) {
       this.mode = mode;
       this.dirty.fills = true;
@@ -270,6 +328,7 @@
     refreshAll() {
       this.dirty = { fills: true, borders: true, labels: true };
       this.requestRender();
+      this.requestStacks();
     }
 
     // ------------------------------------------------------------ yakınlaştırma ve kaydırma
@@ -362,6 +421,11 @@
         drag = null;
         svg.classList.remove('dragging');
         if (wasDrag) return;
+        const stackEl = e.target.closest?.('.stack');
+        if (stackEl && svg.contains(stackEl)) {
+          this.handlers.onStackClick?.(Number(stackEl.getAttribute('data-stack')));
+          return;
+        }
         const target = e.target.closest?.('.hex');
         if (target && svg.contains(target)) {
           const pid = Number(target.getAttribute('data-id'));
@@ -370,6 +434,11 @@
       });
       svg.addEventListener('pointermove', (e) => {
         if (drag?.moved) return;
+        const stackEl = e.target.closest?.('.stack');
+        if (stackEl) {
+          this.handlers.onStackHover?.(Number(stackEl.getAttribute('data-stack')), e);
+          return;
+        }
         const target = e.target.closest?.('.hex');
         if (target) {
           const pid = Number(target.getAttribute('data-id'));

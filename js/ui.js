@@ -123,6 +123,8 @@
       this.map = new MH.MapView(svg, game, {
         onClick: (pid, owner) => this.onMapClick(pid, owner),
         onHover: (pid, owner, e) => this.onMapHover(pid, owner, e),
+        onStackClick: (sid) => this.onStackClick(sid),
+        onStackHover: (sid, e) => this.onStackHover(sid, e),
       });
       game.on('event', ({ prevSpeed }) => {
         if (prevSpeed > 0) this._resumeAfterEvent = true;
@@ -147,6 +149,7 @@
         this.flashBattle(won ? '🏆 ' + other + ' ordusu yenildi (−' + soldiers(lossL) + ')' : '💥 ' + other + ' karşısında yenilgi (−' + soldiers(lossL) + ')', won);
       });
       game.on('month', () => { this._dirtySide = true; });
+      game.on('siege', ({ by }) => this.toast('🏰 Kuşatma altındayız', [[game.nation(by).name + ' bir eyaletimizi kuşatıyor. Ordularınızı gönderin!', null]], 'bad'));
       game.on('goal', (goal) => this.toast('🎯 Hedef tamamlandı', [[goal.label, null]], 'good'));
       game.on('scenarioEnd', () => this.showEnding());
       game.on('province', () => { this._dirtySide = true; });
@@ -261,6 +264,8 @@
       document.body.dataset.mode = 'play';
       this.selected = null;
       this.target = null;
+      this.selectedStack = null;
+      $('#order-hint').hidden = true;
       this.tab = 'overview';
       this.map.select(null);
       this.map.setFocus(g.state.playerId);
@@ -456,8 +461,10 @@
           </div>
           <p class="muted small">Her bin asker ayda 0,18 altın bakım ister. Ordu, cephe sayısına bölünerek savaşır.</p>
         </section>
+        ${this._stacksHtml()}
         <section class="card">
           <h3>Savaşlar</h3>
+          ${wars.length ? '<p class="muted small">Duruş, otomatik komutadaki ordularınızın davranışını belirler.</p>' : ''}
           ${wars.length ? wars.map((w) => {
             const enemy = w.a === p.id ? w.b : w.a;
             const score = g.warScore(w, p.id);
@@ -635,6 +642,10 @@
         case 'sendGift': res = g.sendGift(me, t, 50); break;
         case 'peace': res = g.offerPeace(me, t, data.type); break;
         case 'stance': res = g.setWarStance(me, t, data.stance); break;
+        case 'selectStack': this.selectStack(Number(data.stack), true); return;
+        case 'splitStack': res = MH.armies.splitStack(g, Number(data.stack)); break;
+        case 'mergeStack': res = MH.armies.mergeStacks(g, Number(data.stack)); break;
+        case 'autoStack': res = MH.armies.setAuto(g, Number(data.stack), data.auto === '1'); break;
         case 'mercs': res = g.hireMercenaries(me, Number(data.n)); break;
         case 'festival': res = g.holdFestival(me); break;
         case 'showEnding': this.showEnding(); return;
@@ -699,6 +710,14 @@
     // ============================================================ harita etkileşimi
     onMapClick(pid, owner) {
       if (!owner) return;
+      if (this.selectedStack && !MH.armies.stackById(this.game, this.selectedStack)) this.selectStack(null);
+      if (this.mode === 'play' && this.selectedStack) {
+        const res = MH.armies.moveStack(this.game, this.selectedStack, pid);
+        this.showResult(res);
+        this.map.renderStacks();
+        this.renderSide();
+        return;
+      }
       if (this.mode === 'pick') {
         this.pickNation(owner);
         return;
@@ -710,6 +729,86 @@
         this.tab = 'overview';
         this.renderSide();
       } else this.selectTarget(owner);
+    }
+
+    // ============================================================ ordular
+    onStackClick(sid) {
+      const g = this.game;
+      if (this.mode !== 'play') return;
+      const stack = MH.armies.stackById(g, sid);
+      if (!stack) return;
+      if (stack.owner !== g.state.playerId) {
+        // Düşman ordusuna tıklamak, seçili orduyu oraya gönderir ya da düşmanı diplomasi hedefi yapar
+        if (this.selectedStack) this.onMapClick(stack.prov, g.state.owner[stack.prov]);
+        else this.selectTarget(stack.owner);
+        return;
+      }
+      this.selectStack(this.selectedStack === sid ? null : sid);
+    }
+
+    selectStack(sid, focus = false) {
+      this.selectedStack = sid;
+      this.map.selectStack(sid);
+      const hint = $('#order-hint');
+      const stack = sid ? MH.armies.stackById(this.game, sid) : null;
+      hint.hidden = !stack;
+      if (stack) {
+        hint.textContent = '⚔️ ' + stack.name + ' seçili — hedef eyalete tıklayın · Esc: bırak';
+        if (focus) {
+          const p = this.game.grid.provinces[stack.prov];
+          const v = this.map.view;
+          this.map.view = { ...v, x: p.x - v.w / 2, y: p.y - v.h / 2 };
+          this.map._clampView();
+          this.map._applyView();
+        }
+      }
+      if (this.tab === 'military') this.renderSide();
+    }
+
+    onStackHover(sid, e) {
+      const g = this.game;
+      const s = MH.armies.stackById(g, sid);
+      const tip = $('#map-tooltip');
+      if (!s) { tip.hidden = true; return; }
+      const st = MH.armies.status(g, s);
+      tip.innerHTML = `<b>${esc(s.name)}</b><div class="muted">${esc(g.nation(s.owner).name)}</div>
+        <div>${soldiers(s.size)} asker · güç ${Math.round(MH.armies.strength(g, s))}</div><div>${esc(st.text)}</div>
+        ${s.owner === g.state.playerId ? `<div class="muted">${s.auto ? 'Otomatik komuta' : 'Sizin emrinizde'}</div>` : ''}`;
+      this._placeTip(e);
+    }
+
+    _stacksHtml() {
+      const g = this.game;
+      const stacks = MH.armies.stacksOf(g, g.state.playerId);
+      if (!stacks.length) return '';
+      return `<section class="card">
+        <h3>Ordular</h3>
+        <p class="muted small">Bir orduyu seçip haritada hedef eyalete tıklayın. Düşman eyaletinde duran ordu kuşatma başlatır. Emir verilen ordu manuel kontrole geçer.</p>
+        <ul class="stack-list">${stacks.map((s) => {
+          const st = MH.armies.status(g, s);
+          const here = stacks.filter((x) => x !== s && x.prov === s.prov).length;
+          return `<li class="${s.id === this.selectedStack ? 'selected' : ''}">
+            <div class="sl-head"><b>${esc(s.name)}</b><span>${soldiers(s.size)}</span></div>
+            <div class="sl-status ${st.kind}">${esc(st.text)} · ${esc(g.nation(g.state.owner[s.prov]).name)}</div>
+            <div class="btn-row">
+              <button class="btn tiny ${s.id === this.selectedStack ? 'primary' : ''}" data-act="selectStack" data-stack="${s.id}">${s.id === this.selectedStack ? 'Seçili' : 'Seç'}</button>
+              <button class="btn tiny ghost" data-act="autoStack" data-stack="${s.id}" data-auto="${s.auto ? '0' : '1'}">${s.auto ? '🤖 Otomatik' : '🎖️ Manuel'}</button>
+              <button class="btn tiny ghost" data-act="splitStack" data-stack="${s.id}" ${s.size < 4 ? 'disabled' : ''}>Böl</button>
+              ${here ? `<button class="btn tiny ghost" data-act="mergeStack" data-stack="${s.id}">Birleştir</button>` : ''}
+            </div>
+          </li>`;
+        }).join('')}</ul>
+      </section>`;
+    }
+
+    _placeTip(e) {
+      const tip = $('#map-tooltip');
+      const wrap = $('#map-wrap').getBoundingClientRect();
+      tip.hidden = false;
+      const x = e.clientX - wrap.left + 14;
+      const y = e.clientY - wrap.top + 14;
+      tip.style.left = Math.min(x, wrap.width - tip.offsetWidth - 8) + 'px';
+      tip.style.top = Math.min(y, wrap.height - tip.offsetHeight - 8) + 'px';
     }
 
     onMapHover(pid, owner, e) {
@@ -727,13 +826,11 @@
         const st = g.warBetween(me, owner) ? ' · ⚔️ savaşta' : g.isAllied(me, owner) ? ' · 🤝 müttefik' : '';
         extra = `<div>Size bakışı: <b class="tone-${opinionClass(op)}">${op > 0 ? '+' : ''}${op}</b>${st}</div>`;
       }
+      const sg = g.state.sieges?.[pid];
+      if (sg) extra += `<div class="tone-warn">Kuşatma altında (${esc(g.nation(sg.by).name)}): %${Math.min(99, Math.round((sg.progress / sg.needed) * 100))}</div>`;
+      if (this.selectedStack && this.mode === 'play') extra += '<div class="tone-info">Tıkla: seçili orduyu buraya gönder</div>';
       tip.innerHTML = `<b>${esc(n.name)}</b><div class="muted">${esc(n.leader)}</div><div>Eyalet gelişimi: ${g.state.dev[pid]}${n.capital === pid ? ' · ★ başkent' : ''}</div>${extra}`;
-      const wrap = $('#map-wrap').getBoundingClientRect();
-      tip.hidden = false;
-      const x = e.clientX - wrap.left + 14;
-      const y = e.clientY - wrap.top + 14;
-      tip.style.left = Math.min(x, wrap.width - tip.offsetWidth - 8) + 'px';
-      tip.style.top = Math.min(y, wrap.height - tip.offsetHeight - 8) + 'px';
+      this._placeTip(e);
     }
 
     // ============================================================ olaylar (AC 4.1, 4.2)
@@ -902,6 +999,7 @@
       document.addEventListener('keydown', (e) => {
         if (e.target.matches?.('input, textarea, select')) return;
         if (e.key === 'Escape' && !$('#modal').hidden && $('#modal').dataset.dismissable) this.closeModal();
+        if (e.key === 'Escape' && $('#modal').hidden && this.selectedStack) this.selectStack(null);
         if (this.mode !== 'play' || !$('#modal').hidden) return;
         if (e.code === 'Space') { e.preventDefault(); this.togglePause(); }
         if (['1', '2', '3'].includes(e.key)) this.setSpeed(Number(e.key));

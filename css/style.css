@@ -146,6 +146,32 @@ button, input, select { font: inherit; color: inherit; }
 }
 #map .nation-label.is-player { fill: #1a1408; }
 
+#map .stack { cursor: pointer; }
+#map .stack rect:first-child { stroke: #111; stroke-width: 1; }
+#map .stack.mine rect:first-child { stroke: var(--gold-2); stroke-width: 1.6; }
+#map .stack.foe rect:first-child { stroke: #ff5a4a; stroke-width: 1.4; }
+#map .stack.selected rect:first-child { stroke: #fff; stroke-width: 2.4; }
+#map .stack.shattered { opacity: .55; }
+#map .stack text { font: 700 7.5px var(--font); text-anchor: middle; dominant-baseline: middle; fill: #fff; stroke: rgba(0, 0, 0, .75); stroke-width: 1.6; paint-order: stroke; pointer-events: none; }
+#map .siege-bg { fill: rgba(0, 0, 0, .7); }
+#map .siege-fg { fill: #ff7a45; }
+#map .army-path { fill: none; stroke: var(--gold-2); stroke-width: 1.4; stroke-dasharray: 3 2.5; opacity: .8; pointer-events: none; }
+#map .army-path.selected { stroke-width: 2.4; opacity: 1; }
+#map .army-path-end { fill: var(--gold-2); pointer-events: none; }
+#order-hint {
+  position: absolute; left: 50%; top: 46px; transform: translateX(-50%); padding: 6px 14px; border-radius: 99px;
+  background: rgba(217, 180, 91, .95); color: #1a1408; font-weight: 600; font-size: 13px; pointer-events: none; white-space: nowrap;
+}
+.stack-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.stack-list li { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.stack-list li.selected { border-color: var(--gold); }
+.stack-list .sl-head { display: flex; align-items: center; gap: 8px; }
+.stack-list .sl-head b { flex: 1; }
+.stack-list .btn-row { margin-top: 6px; }
+.sl-status { font-size: 12px; color: var(--muted); }
+.sl-status.siege { color: #ff9f6e; }
+.sl-status.shattered { color: var(--bad); }
+
 #map-tooltip {
   position: absolute; pointer-events: none; background: rgba(18, 22, 31, .95); border: 1px solid var(--line);
   padding: 8px 10px; border-radius: 8px; font-size: 12px; max-width: 240px; box-shadow: var(--shadow); z-index: 5;

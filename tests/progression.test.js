@@ -77,23 +77,23 @@ test('Yenilgide de kronik ve değerlendirme oluşur', () => {
   assert.ok(game.state.chronicle.length >= 2);
 });
 
-test('Cephe duruşu: taarruz daha fazla toprak, savunma daha az kayıp getirir', () => {
-  const run = (playerStance) => {
+test('Cephe duruşu (yapay zekâ savaşları): taarruz daha fazla toprak, savunma daha az kayıp getirir', () => {
+  const run = (stance) => {
     let taken = 0;
     let lost = 0;
     for (let seed = 0; seed < 6; seed++) {
-      const game = newGame('great-war-1914', 'spain');
+      const game = newGame('great-war-1914', 'sweden');
       game.state.rng = 1000 + seed;
       game.declareWar('spain', 'portugal');
       game.nation('portugal').army = 60;
-      game.player.army = 60;
-      game.setWarStance('spain', 'portugal', playerStance);
+      game.nation('spain').army = 60;
+      game.setWarStance('spain', 'portugal', stance);
       const p0 = game.provincesOf('spain').length;
       for (let d = 0; d < 300 && game.warBetween('spain', 'portugal'); d++) {
         game._dailyCombat();
       }
       taken += Math.max(0, game.provincesOf('spain').length - p0);
-      lost += 60 - game.player.army;
+      lost += 60 - game.nation('spain').army;
     }
     return { taken, lost };
   };

@@ -203,18 +203,18 @@ test('AC 3.2 — fetihler haritayı anında günceller', () => {
 });
 
 test('AC 3.2 — savaşlar zamanla toprak değiştirir; tüm topraklarını kaybeden ulus yok olur', () => {
-  const game = newGame('great-war-1914', 'spain');
-  game.declareWar('spain', 'portugal');
-  const start = game.provincesOf('portugal').length;
-  game.player.army = 400;
+  const game = newGame('fall-1453', 'castile');
+  game.declareWar('castile', 'granada');
+  const start = game.provincesOf('granada').length;
+  game.player.army = 80;
   let moved = 0;
   game.on('province', () => moved++);
-  for (let i = 0; i < 365 * 3 && game.nation('portugal').alive; i++) {
+  for (let i = 0; i < 365 * 3 && game.nation('granada').alive; i++) {
     game.tick();
     game.state.eventQueue = [];
   }
   assert.ok(moved > 0, 'en az bir eyalet el değiştirmeli');
-  assert.ok(game.provincesOf('portugal').length < start || !game.nation('portugal').alive);
+  assert.ok(game.provincesOf('granada').length < start || !game.nation('granada').alive);
 });
 
 // ---------------------------------------------------------------- 4. Alternatif tarih olayları

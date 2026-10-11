@@ -17,7 +17,7 @@ npm start          # http://localhost:8080
 npm test           # kabul kriterleri testleri (Node 18+)
 ```
 
-**Kısayollar:** `Boşluk` duraklat/devam · `1` `2` `3` hız · fare tekerleği yakınlaştır · sürükle kaydır.
+**Kısayollar:** `Boşluk` duraklat/devam · `1` `2` `3` hız · `Esc` ordu seçimini bırak · fare tekerleği yakınlaştır · sürükle kaydır.
 
 ## Senaryolar
 
@@ -41,7 +41,7 @@ olarak Sultan'a haraç öderseniz kuşatma hiç gerçekleşmez; 1914'te Avustury
 | 2.2 | **Diplomasi** sekmesi: ittifak öner/boz, ticaret, hediye, savaş ilanı (onay penceresinde sonuç önizlemesi), barış (beyaz barış / tazminat iste / tazminat öde). Yapay zekâ ilişki ve savaş skoruna göre kabul ya da ret eder; savunma ittifakları otomatik devreye girer | `proposeAlliance`, `declareWar`, `offerPeace` | `AC 2.2` ×4 |
 | 2.3 | Her karar bir sonuç bildirimi gösterir: savaş ilanı istikrarı düşürür, komşular saldırganlık nedeniyle tavır alır, ateşkes ihlali ağır cezalıdır; vergi, ittifak bozma, hediye, ticaret ilişkileri ve istikrarı değiştirir. "Diplomatik harita" modu komşuların tutumunu renklerle gösterir | `engine.js`, `map.js` `colorOf` | `AC 2.3` ×2 |
 | 3.1 | Üst çubukta duraklat + 3 hız; boşluk ve 1–3 kısayolları; olay geldiğinde zaman otomatik durur | `setSpeed`, `ui.js` `_loop` | `AC 3.1` ×2 |
-| 3.2 | Kazanılan muharebeler eyaletleri anında el değiştirir; altıgen rengi, ülke sınırları, etiketler ve başkentler yeniden çizilir, fethedilen eyalet parlar. Düşman toprakları taralı gösterilir | `transferProvince`, `MapView` | `AC 3.2` ×2 |
+| 3.2 | Haritadaki ordular eyaletleri kuşatır; kuşatma bitince eyalet anında el değiştirir. Altıgen rengi, ülke sınırları, etiketler ve başkentler yeniden çizilir, fethedilen eyalet parlar. Düşman toprakları taralı, kuşatmalar ilerleme çubuğuyla gösterilir | `armies.js`, `transferProvince`, `MapView` | `AC 3.2` ×2, `armies.test.js` |
 | 4.1 | Aylık %50 şansla (en az 60 gün arayla) rastgele olay; ayrıca tarihe bağlı olaylar. Olay penceresi oyunu duraklatır | `events.js` `checkRandom`, `checkScheduled` | `AC 4.1` ×2 |
 | 4.2 | 38 olayın tamamında en az 2 (bazılarında 3) seçenek; her seçeneğin etkisi önceden gösterilir, bazılarının sonucu zarla belirlenir | `events.js` `apply`, `preview` | `AC 4.2` ×3 |
 
@@ -57,13 +57,28 @@ User Story'nin *"kendi imparatorluğumu ve hikâyemi yaratabileyim"* kısmı iç
 - **Senaryo sonu:** 1453 → 1520, 1815 → 1850, 1914 → 1925. Bitişte (ya da yenilgide) tarih puanı, rütbe
   (*Unutulan Hanedan … Efsanevi İmparatorluk*), hedefler ve kronik gösterilir; isterseniz oynamaya devam edebilirsiniz.
 
+## Ordular ve kuşatmalar
+
+Oyuncunun dahil olduğu savaşlar haritada somut ordularla yürür:
+
+- **Ordu simgeleri** (asker sayısıyla) eyaletlerde durur. Bir orduyu seçin (simgesine ya da *Ordu* sekmesindeki listeye tıklayın),
+  sonra hedef eyalete tıklayın: rota çizilir ve ordu yürür. Tarafsız ülkelere giriş yoktur; müttefik ve düşman toprakları geçilebilir.
+- **Meydan muharebesi:** Düşman ordularıyla aynı eyalette karşılaşınca savaş olur (güç oranı, ordu kalitesi, kendi toprağında %25 avantaj).
+  Yenilen ordu dağılır ve geri çekilir; kaçacak yeri yoksa teslim olur.
+- **Kuşatma:** Düşman eyaletinde duran ordu kuşatma başlatır. Süre gelişime, başkent olup olmamasına ve ordunun büyüklüğüne bağlıdır.
+  Kuşatma bitince eyalet el değiştirir. Kuşatmayı yalnızca kuşatanın yenilgisi bozar. Eyaletiniz kuşatılırsa bildirim gelir.
+- **Otomatik komuta:** Ordular varsayılan olarak cephe duruşuna göre kendi kendine hareket eder (saldır, kuşat, kuşatmayı kaldır,
+  güçlü düşmandan kaç). Emir verdiğiniz ordu manuel kontrole geçer; *Ordu* sekmesinden geri alınabilir. Ordular bölünüp birleştirilebilir.
+- Toplanan ya da kaybedilen askerler ordulara otomatik yansır. Yapay zekâ ile yapay zekâ arasındaki savaşlar performans için
+  soyut cephe modeliyle sürer; birden çok cephede savaşan bir yapay zekâ ulusu haritaya ordusunun yalnızca oyuncuya düşen payını çıkarır.
+
 ## Oyun mekaniği özeti
 
 - **Harita:** Avrupa, Kuzey Afrika ve Yakın Doğu yaklaşık 940 altıgen eyalete bölünür. Ülke sınırları her senaryoda
   başkentlerden ve tarihî tohum noktalarından genişleyen ağırlıklı bir yayılımla oluşturulur (aynı senaryo hep aynı haritayla başlar).
 - **Ekonomi:** Gelir = gelişim × vergi × istikrar çarpanı + ticaret − ordu bakımı. Hazine eksiye düşerse askerler firar eder.
 - **İstikrar:** Vergi, savaş sayısı, savaş yorgunluğu ve üretim odağına göre bir hedefe doğru ayda en fazla 3 puan kayar.
-- **Savaş:** Ordular cephelere duruşa göre bölünür. *Taarruz* orduyu o cepheye yoğunlaştırır, daha sık saldırır ve daha çok toprak
+- **Savaş (yapay zekâ savaşları ve otomatik komuta):** Ordular cephelere duruşa göre bölünür. *Taarruz* orduyu o cepheye yoğunlaştırır, daha sık saldırır ve daha çok toprak
   alır ama daha çok kayıp verir; *Savunma* tahkimatla düşman saldırılarını zorlaştırır. Muharebeyi güç oranı, ordu kalitesi ve
   savunma avantajı belirler. Başkentler surlarla korunur, son kale daha da zor düşer. Tüm topraklarını kaybeden ulus yok olur.
 - **Altın harcama:** İnsan gücü tükendiğinde *paralı asker* (3 kat pahalı) kiralanabilir; *şenlik* yılda bir altın karşılığında
@@ -78,8 +93,8 @@ Her senaryodaki her ulus, 15 yıl boyunca iki farklı botla otomatik oynatıldı
 
 | Oyuncu tipi | 1453 hayatta kalan | 1815 | 1914 |
 | ----------- | ------------------ | ---- | ---- |
-| Aktif bot (vergi/istikrar dengesi, asker, barış, cephe duruşu) | 44/48 | 26/28 | 20/22 |
-| Pasif bot (hiçbir karar vermez) | 22/48 | 16/28 | 16/22 |
+| Aktif bot (vergi/istikrar dengesi, asker, barış, cephe duruşu) | 45/48 | 25/28 | 20/22 |
+| Pasif bot (hiçbir karar vermez; ordular otomatik komutada) | 29/48 | 22/28 | 17/22 |
 
 Yani kararlar belirleyici, ama hareketsiz kalan büyük devletler de birkaç yılda çökmez. En zor başlangıçlar: 1914 Karadağ ve
 Belçika, 1453 Arnavutluk ve Bizans, 1815 Saksonya. Aktif bot ortalama 29–35 tarih puanı alıyor.
@@ -95,14 +110,15 @@ js/engine.js        Oyun durumu: ekonomi, diplomasi, savaş, zaman, kayıt
 js/ai.js            Yapay zekâ ulusların aylık kararları
 js/events.js        Tarihî, kurgusal ve yapay zekâ kaynaklı olaylar
 js/goals.js         Ulus hedefleri, kronik ve senaryo sonu değerlendirmesi
+js/armies.js        Haritadaki ordular: yol bulma, yürüyüş, meydan muharebesi, kuşatma, otomatik komuta
 js/map.js           SVG harita görünümü (yakınlaştırma, kaydırma, harita modları)
 js/ui.js            Menü, ulus seçimi, sekmeler, bildirimler
 tests/              Kabul kriterleri ve ilerleme mekanikleri için Node testleri
 ```
 
-`engine.js`, `ai.js`, `events.js` ve `goals.js` DOM'a bağımlı değildir; testler bunları doğrudan Node'da çalıştırır.
+`engine.js`, `ai.js`, `events.js`, `goals.js` ve `armies.js` DOM'a bağımlı değildir; testler bunları doğrudan Node'da çalıştırır.
 
 ## Sonraki adımlar (öneri)
 
-Modüller ayrı epiklere bölünebilir: ayrıntılı **Savaş Sistemi** (birlik türleri, haritada ordu hareketi, kuşatma),
+Modüller ayrı epiklere bölünebilir: ayrıntılı **Savaş Sistemi** (birlik türleri, deniz kuvvetleri, generaller),
 **Diplomasi Ekranı** (antlaşma maddeleri, vasallık, barışta toprak talebi), eyalet adları ve bina/kalkınma sistemi.

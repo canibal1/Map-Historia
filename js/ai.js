@@ -51,7 +51,7 @@
         if (!already && !cooldown && months >= 2 && (score <= -35 || nat.warExhaustion >= 60) && game.random() < 0.35) {
           war.lastOffer = game.state.day;
           game.queueEvent('ai_peace_offer', pid, { target: nat.id, pay: score <= -35 });
-        } else if (!already && !cooldown && months >= 4 && score >= 35 && game.random() < 0.35) {
+        } else if (!already && !cooldown && months >= 2 && score >= 30 && game.random() < 0.5) {
           // Kazanan yapay zekâ şartlarını dayatır
           war.lastOffer = game.state.day;
           game.queueEvent('ai_peace_demand', pid, { target: nat.id });
