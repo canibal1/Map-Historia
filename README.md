@@ -7,6 +7,8 @@ vergiden ittifaklara, savaştan barışa kadar her kararla tarihin akışını d
 > kararlar alabilmek istiyorum, **böylece** kendi stratejilerimle dünya tarihinin akışını değiştirip kendi imparatorluğumu ve
 > hikâyemi yaratabileyim.
 
+**▶ Hemen oyna (telefon ve bilgisayar):** https://canibal1.github.io/Map-Historia/
+
 ## Çalıştırma
 
 Kurulum gerekmez; tüm kod saf HTML/CSS/JavaScript'tir.
@@ -17,6 +19,9 @@ npm start          # http://localhost:8080
 npm test           # kabul kriterleri testleri (Node 18+)
 npm run build      # dist/map-historia.html: tek dosyalık, paylaşılabilir sürüm
 ```
+
+Çevrimiçi sürüm `gh-pages` dalındaki tek dosyadır (`index.html` = `dist/map-historia.html`). Güncellemek için
+`npm run build` çalıştırıp bu dosyayı `gh-pages` dalına `index.html` olarak gönderin.
 
 **Kısayollar:** `Boşluk` duraklat/devam · `1` `2` `3` hız · `Esc` ordu seçimini bırak · fare tekerleği yakınlaştır · sürükle kaydır.
 
