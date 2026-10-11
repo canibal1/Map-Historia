@@ -18,7 +18,7 @@
 
   /** [etiket, değer, birim] → { text, tone } */
   function formatEffect([label, value, unit]) {
-    if (value === null || value === undefined) return { text: label, tone: 'info' };
+    if (value === null || value === undefined) return { text: label, tone: /^✓/.test(label) ? 'good' : /^✗/.test(label) ? 'bad' : 'info' };
     if (unit === 'abs') return { text: label + ': ' + num(value), tone: 'info' };
     let v;
     if (unit === 'k') v = (value > 0 ? '+' : '−') + soldiers(Math.abs(value));
@@ -68,6 +68,10 @@
       if (this.game) this.game.state.speed = 0;
       $('#screen-game').hidden = true;
       $('#screen-menu').hidden = false;
+      document.body.dataset.mode = 'menu';
+      this.overlay = null;
+      this.renderOverlay?.();
+      this._renderMenuAI();
       const list = $('#scenario-list');
       list.innerHTML = MH.SCENARIOS.map((sc) => `
         <article class="scenario-card" data-id="${sc.id}" tabindex="0" role="button" aria-label="${esc(sc.title)} senaryosunu seç">
@@ -96,6 +100,11 @@
           btn.hidden = true;
         }
       }
+    }
+
+    _renderMenuAI() {
+      const s = MH.llm.load();
+      $('#btn-ai-menu').textContent = MH.llm.enabled(s) ? '🤖 Yapay zekâ: ' + (s.provider === 'gemini' ? 'Gemini' : s.model) + ' bağlı' : '🤖 Yapay zekâ bağlantısı (isteğe bağlı)';
     }
 
     /** Senaryonun harita verisini yükler (ilk açılışta birkaç saniye sürebilir) */
@@ -187,6 +196,11 @@
       game.on('goal', (goal) => this.toast('🎯 Hedef tamamlandı', [[goal.label, null]], 'good'));
       game.on('scenarioEnd', () => this.showEnding());
       game.on('province', () => { this._dirtySide = true; });
+      MH.diplomacy.attach(game);
+      game.on('chat', (msg) => this.onChat(msg));
+      this.overlay = null;
+      this.chatWith = null;
+      this.renderOverlay();
     }
 
     _enterGameScreen() {
@@ -263,7 +277,9 @@
 
     _summaryHtml(s, pickMode, extra = '') {
       const [diff, diffTone] = this._difficulty(s);
-      const chips = (arr, tone) => (arr.length ? arr.map((x) => `<span class="chip ${tone}">${esc(x)}</span>`).join('') : '<span class="muted">—</span>');
+      const chips = (arr, tone, max = 10) => (arr.length
+        ? arr.slice(0, max).map((x) => `<span class="chip ${tone}">${esc(x)}</span>`).join('') + (arr.length > max ? ` <span class="muted">+${arr.length - max}</span>` : '')
+        : '<span class="muted">—</span>');
       const rel = (arr, tone) => (arr.length ? arr.map((x) => `<span class="chip ${tone}">${esc(x.name)} <b>${x.value > 0 ? '+' : ''}${x.value}</b></span>`).join('') : '<span class="muted">—</span>');
       return `
         <div class="summary">
@@ -296,7 +312,7 @@
             <div><span>Ticaret</span><div>${chips(s.trade, 'trade')}</div></div>
             <div><span>Dostlar</span><div>${rel(s.friends, 'good')}</div></div>
             <div><span>Rakipler</span><div>${rel(s.rivals, 'bad')}</div></div>
-            <div><span>Komşular</span><div>${chips(s.neighbors.slice(0, 8), '')}${s.neighbors.length > 8 ? ' <span class="muted">+' + (s.neighbors.length - 8) + '</span>' : ''}</div></div>
+            <div><span>Komşular</span><div>${chips(s.neighbors, '', 8)}</div></div>
           </div>
           ${extra}
           ${pickMode ? `<button class="btn primary wide" id="pick-start">▶ ${esc(s.name)} olarak başla</button>` : ''}
@@ -324,6 +340,7 @@
       this.renderTopbar();
       this.renderSide();
       this.renderSpeed();
+      this.renderOverlay();
       if (!loaded) {
         MH.events.checkScheduled(g);
         this.toast('Hoş geldiniz, ' + g.player.leader, [['Oyunu başlatmak için ▶ düğmesine veya Boşluk tuşuna basın.', null]], 'info');
@@ -613,7 +630,8 @@
               <div><dt>İstikrar</dt><dd class="tone-${stabilityTone(n.stability)}">${Math.round(n.stability)}</dd></div>
             </dl>
             ${this.provinceSel != null && g.state.owner[this.provinceSel] === t ? this._provinceHtml(this.provinceSel, false) : ''}
-            <p class="muted small">Müttefikleri: ${n.allies.length ? n.allies.map((a) => esc(g.nation(a).name)).join(', ') : '—'}${g.enemiesOf(t).length ? ' · Savaşta: ' + g.enemiesOf(t).map((a) => esc(g.nation(a).name)).join(', ') : ''}</p>
+            <p class="muted small">Müttefikleri: ${n.allies.length ? n.allies.slice(0, 8).map((a) => esc(g.nation(a).name)).join(', ') + (n.allies.length > 8 ? ' +' + (n.allies.length - 8) : '') : '—'}${g.enemiesOf(t).length ? ' · Savaşta: ' + g.enemiesOf(t).map((a) => esc(g.nation(a).name)).join(', ') : ''}</p>
+            <button class="btn primary wide" data-act="chat" data-target="${t}">💬 ${esc(MH.diplomacy.leaderName(n))} ile sohbet et</button>
             <div class="actions">
               ${war ? `
                 <button class="btn" data-act="peace" data-type="white" data-target="${t}">🕊️ Beyaz barış öner</button>
@@ -740,6 +758,7 @@
         case 'logView': this.logView = data.view; this.renderSide(); return;
         case 'clearTarget': this.selectTarget(null); return;
         case 'declareWar': this.confirmWar(t); return;
+        case 'chat': this.openChat(t); return;
         default: return;
       }
       this.showResult(res);
@@ -751,7 +770,9 @@
       const me = g.state.playerId;
       const n = g.nation(t);
       const defenders = n.allies.filter((a) => a !== me && !g.warBetween(a, me)).map((a) => g.nation(a));
-      const helpers = g.player.allies.filter((a) => a !== t && !g.isAllied(a, t) && g.opinion(a, me) >= 50).map((a) => g.nation(a));
+      const helpers = g.player.allies
+        .filter((a) => a !== t && !g.isAllied(a, t) && g.opinion(a, me) >= 50 && (!g.scenario.defensivePacts || g.opinion(a, t) <= -30))
+        .map((a) => g.nation(a));
       const truce = g.truceUntil(me, t);
       const strength = (id) => Math.round(g.militaryStrength(id));
       const enemyTotal = strength(t) + defenders.reduce((s, d) => s + strength(d.id), 0);
@@ -1127,6 +1148,9 @@
         } else this.showMenu();
       });
       $('#btn-save').addEventListener('click', () => this.save());
+      $('#btn-ai').addEventListener('click', () => this.showAISettings());
+      $('#btn-ai-menu').addEventListener('click', () => this.showAISettings());
+      document.querySelectorAll('#dock [data-overlay]').forEach((b) => b.addEventListener('click', () => this.toggleOverlay(b.dataset.overlay)));
       document.querySelectorAll('.speed button').forEach((b) => b.addEventListener('click', () => this.setSpeed(Number(b.dataset.speed))));
       document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => {
         this.tab = b.dataset.tab;
@@ -1146,6 +1170,7 @@
         if (e.target.matches?.('input, textarea, select')) return;
         if (e.key === 'Escape' && !$('#modal').hidden && $('#modal').dataset.dismissable) this.closeModal();
         if (e.key === 'Escape' && $('#modal').hidden && this.selectedStack) this.selectStack(null);
+        else if (e.key === 'Escape' && $('#modal').hidden && this.overlay) this.closeOverlay();
         if (this.mode !== 'play' || !$('#modal').hidden) return;
         if (e.code === 'Space') { e.preventDefault(); this.togglePause(); }
         if (['1', '2', '3'].includes(e.key)) this.setSpeed(Number(e.key));
@@ -1156,6 +1181,7 @@
   }
 
   MH.App = App;
+  MH.App.effectList = effectList;
 
   /*
    * Açılış. Sayfa claude.ai üzerinde yayınlandığında görüntüleyici `window.claude.hot`

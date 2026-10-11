@@ -23,6 +23,7 @@
         <h1 class="logo">Map Historia</h1>
         <p class="tagline">Bir ulus seç. Kararlarını ver. Tarihin akışını değiştir.</p>
         <button id="btn-continue" class="btn primary" hidden>Kayıtlı oyuna devam et</button>
+        <button id="btn-ai-menu" class="btn ghost small ai-menu">🤖 Yapay zekâ bağlantısı</button>
       </header>
       <h2 class="section-title">Bir dönem seç</h2>
       <div id="scenario-list" class="scenario-grid"></div>
@@ -47,6 +48,7 @@
         </div>
       </div>
       <div class="tb-menu">
+        <button id="btn-ai" class="btn small ghost" title="Yapay zekâ ayarları" aria-label="Yapay zekâ ayarları">🤖</button>
         <button id="btn-save" class="btn small">Kaydet</button>
         <button id="btn-menu" class="btn small ghost">Menü</button>
       </div>
@@ -68,6 +70,11 @@
           <button id="zoom-out" aria-label="Uzaklaştır">−</button>
           <button id="zoom-reset" aria-label="Tüm harita">⌂</button>
         </div>
+        <nav id="dock" class="dock" aria-label="Paneller">
+          <button data-overlay="chat" title="Diplomatik sohbetler">💬<span>Sohbetler</span><i class="badge" hidden></i></button>
+          <button data-overlay="actions" title="Serbest metinle eylemler">⚡<span>Eylemler</span></button>
+        </nav>
+        <section id="overlay" class="overlay" hidden></section>
         <div class="legend legend-diplomatic">
           <span><i style="background:#f4d35e"></i>Siz</span>
           <span><i style="background:#3d7dd8"></i>Müttefik</span>
@@ -110,7 +117,11 @@
   <script src="js/events.js"></script>
   <script src="js/goals.js"></script>
   <script src="js/armies.js"></script>
+  <script src="js/llm.js"></script>
+  <script src="js/diplomacy.js"></script>
+  <script src="js/actions.js"></script>
   <script src="js/map.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/panels.js"></script>
 </body>
 </html>

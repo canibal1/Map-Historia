@@ -164,7 +164,7 @@
       }
       // Eyalet başka bir şehre aitse en yakın boş komşuya kaydır
       if (city[pid]) {
-        const free = provinces[pid].neighbors.filter((n) => !city[n]).sort((a, b) => km(provinces[a], entry[1], entry[2]) - km(provinces[b], entry[1], entry[2]));
+        const free = provinces[pid].neighbors.filter((n) => !city[n] && provinces[n].polity === provinces[pid].polity).sort((a, b) => km(provinces[a], entry[1], entry[2]) - km(provinces[b], entry[1], entry[2]));
         if (!free.length || km(provinces[free[0]], entry[1], entry[2]) > 260) continue;
         pid = free[0];
       }

@@ -135,6 +135,9 @@
         buildings: {},
         construction: [],
         colonizing: [],
+        chats: {},
+        chatUnread: {},
+        actions: [],
         nextStackId: 1,
         rng: sc.seed,
         speed: 0,
@@ -292,6 +295,9 @@
       state.colonizing ??= [];
       state.sieges ??= {};
       state.nextStackId ??= 1;
+      state.chats ??= {};
+      state.chatUnread ??= {};
+      state.actions ??= [];
       if (state.lastEventDay > state.day) state.lastEventDay = state.day - 30;
       return new Game(state);
     }
@@ -840,13 +846,20 @@
       return count;
     }
 
-    proposeTrade(from, to) {
-      if (from === to) return this._result(false, 'Geçersiz hedef.');
-      const target = this.state.nations[to];
-      if (this.hasTrade(from, to)) return this._result(false, 'Zaten bir ticaret anlaşması var.');
-      if (this.warBetween(from, to)) return this._result(false, 'Savaştaki bir ülkeyle ticaret yapılamaz.');
+    /** Ticaret teklifinin kurallara göre kabul edilip edilemeyeceği (yan etkisiz); null = kabul edilebilir */
+    tradeCheck(from, to) {
+      if (from === to || !this.state.nations[to]?.alive) return 'Geçersiz hedef.';
+      if (this.hasTrade(from, to)) return 'Zaten bir ticaret anlaşması var.';
+      if (this.warBetween(from, to)) return 'Savaştaki bir ülkeyle ticaret yapılamaz.';
       const op = this.opinion(to, from);
-      if (op < -10) return this._result(false, target.name + ' teklifi reddetti (ilişki: ' + op + ').');
+      if (op < -10) return this.state.nations[to].name + ' teklifi reddetti (ilişki: ' + op + ').';
+      return null;
+    }
+
+    proposeTrade(from, to) {
+      const err = this.tradeCheck(from, to);
+      if (err) return this._result(false, err);
+      const target = this.state.nations[to];
       this._link(from, to, 'trade');
       this._changeOpinion(to, from, 10);
       this._changeOpinion(from, to, 10);
@@ -862,19 +875,27 @@
       return this._result(true, 'Ticaret anlaşması iptal edildi.', [[this.state.nations[to].name + ' ilişkisi', -20]]);
     }
 
-    proposeAlliance(from, to) {
+    /** İttifak teklifinin kurallara göre kabul edilip edilemeyeceği (yan etkisiz); null = kabul edilebilir */
+    allianceCheck(from, to) {
       const a = this.state.nations[from];
       const b = this.state.nations[to];
-      if (from === to) return this._result(false, 'Geçersiz hedef.');
-      if (this.isAllied(from, to)) return this._result(false, 'Zaten müttefiksiniz.');
-      if (this.warBetween(from, to)) return this._result(false, 'Önce barış yapmalısınız.');
-      if (a.allies.length >= this.maxAllies()) return this._result(false, 'En fazla ' + this.maxAllies() + ' müttefikiniz olabilir.');
-      if (b.allies.length >= this.maxAllies()) return this._result(false, b.name + ' daha fazla ittifak kuramıyor.');
-      const enemiesOfB = this.enemiesOf(to);
-      if (b.allies.some((x) => this.warBetween(x, from))) return this._result(false, b.name + ' müttefikleriyle savaştığınız için reddetti.');
+      if (from === to || !b?.alive) return 'Geçersiz hedef.';
+      if (this.isAllied(from, to)) return 'Zaten müttefiksiniz.';
+      if (this.warBetween(from, to)) return 'Önce barış yapmalısınız.';
+      if (a.allies.length >= this.maxAllies()) return 'En fazla ' + this.maxAllies() + ' müttefikiniz olabilir.';
+      if (b.allies.length >= this.maxAllies()) return b.name + ' daha fazla ittifak kuramıyor.';
+      if (b.allies.some((x) => this.warBetween(x, from))) return b.name + ' müttefikleriyle savaştığınız için reddetti.';
       const op = this.opinion(to, from);
-      const need = enemiesOfB.length ? 35 : 50;
-      if (op < need) return this._result(false, b.name + ' ittifakı reddetti (ilişki ' + op + ', gerekli ' + need + ').');
+      const need = this.enemiesOf(to).length ? 35 : 50;
+      if (op < need) return b.name + ' ittifakı reddetti (ilişki ' + op + ', gerekli ' + need + ').';
+      return null;
+    }
+
+    proposeAlliance(from, to) {
+      const err = this.allianceCheck(from, to);
+      if (err) return this._result(false, err);
+      const a = this.state.nations[from];
+      const b = this.state.nations[to];
       this._link(from, to, 'allies');
       this._changeOpinion(to, from, 20);
       this._changeOpinion(from, to, 20);
@@ -963,11 +984,13 @@
         this.addLog(joined.join(', ') + ' müttefiki ' + b.name + ' yanında savaşa girdi.', 'war', [to]);
         effects.push(['Savunmaya katılanlar: ' + joined.join(', '), null]);
       }
-      // Saldırganın müttefikleri, ilişkileri iyiyse çağrıya uyar
+      // Saldırganın müttefikleri, ilişkileri iyiyse çağrıya uyar. Savunma paktlarında (günümüz)
+      // yalnızca hedefe zaten düşman olanlar saldırı savaşına katılır.
       const helpers = [];
+      const pactOnly = !!this.scenario.defensivePacts;
       for (const al of [...a.allies]) {
         if (al === to || this.warBetween(al, to) || this.isAllied(al, to)) continue;
-        if (this.opinion(al, from) >= 50) {
+        if (this.opinion(al, from) >= 50 && (!pactOnly || this.opinion(al, to) <= -30)) {
           this._startWar(al, to, true);
           helpers.push(this.state.nations[al].name);
         }
@@ -1000,26 +1023,33 @@
     }
 
     /** Barış teklifi; `to` yapay zekâ ise kabul edip etmeyeceğine karar verir */
+    /** Barış teklifinin kurallara göre kabul edilip edilemeyeceği (yan etkisiz); null = kabul edilebilir */
+    peaceCheck(from, to, type = 'white') {
+      const war = this.warBetween(from, to);
+      if (!war) return 'Bu ülkeyle savaşta değilsiniz.';
+      if (!PEACE_TYPES[type]) return 'Geçersiz barış türü.';
+      const b = this.state.nations[to];
+      const myScore = this.warScore(war, from);
+      const theirScore = -myScore;
+      if (type === 'white' && theirScore >= 25 && b.warExhaustion < 50) {
+        return b.name + ' beyaz barışı reddetti — savaşı kazandığını düşünüyor (skor ' + theirScore + ').';
+      }
+      if (type === 'demand' && myScore < 30) return b.name + ' tazminat talebini reddetti (savaş skoru ' + myScore + ', en az 30 gerekli).';
+      if (type === 'offer' && theirScore > 70) return b.name + ' tazminatla yetinmiyor; tam zafer istiyor.';
+      return null;
+    }
+
     offerPeace(from, to, type = 'white', force = false) {
       const war = this.warBetween(from, to);
       if (!war) return this._result(false, 'Bu ülkeyle savaşta değilsiniz.');
       if (!PEACE_TYPES[type]) return this._result(false, 'Geçersiz barış türü.');
       const a = this.state.nations[from];
       const b = this.state.nations[to];
-      const myScore = this.warScore(war, from);
-      const theirScore = -myScore;
       const effects = [];
 
       if (!force) {
-        if (type === 'white' && theirScore >= 25 && b.warExhaustion < 50) {
-          return this._result(false, b.name + ' beyaz barışı reddetti — savaşı kazandığını düşünüyor (skor ' + theirScore + ').');
-        }
-        if (type === 'demand' && myScore < 30) {
-          return this._result(false, b.name + ' tazminat talebini reddetti (savaş skoru ' + myScore + ', en az 30 gerekli).');
-        }
-        if (type === 'offer' && theirScore > 70) {
-          return this._result(false, b.name + ' tazminatla yetinmiyor; tam zafer istiyor.');
-        }
+        const err = this.peaceCheck(from, to, type);
+        if (err) return this._result(false, err);
       }
 
       if (type === 'demand') {

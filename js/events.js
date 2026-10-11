@@ -394,6 +394,7 @@
     // ============================================================ rastgele — genel
     {
       id: 'plague',
+      classic: true, // günümüz senaryosunda geçmez
       icon: '☠️',
       title: 'Salgın Hastalık',
       text: 'Liman şehirlerinde ölümcül bir salgın baş gösterdi. Hekimler karantina öneriyor, tüccarlar ise limanların açık kalmasını istiyor.',
@@ -429,6 +430,7 @@
     },
     {
       id: 'noble_intrigue',
+      classic: true, // günümüz senaryosunda geçmez
       icon: '🗡️',
       title: 'Soylu Entrikası',
       text: 'Güçlü bir soylu ailesinin taht aleyhine komplo kurduğu ortaya çıktı.',
@@ -487,6 +489,7 @@
     },
     {
       id: 'comet',
+      classic: true, // günümüz senaryosunda geçmez
       icon: '☄️',
       title: 'Kuyruklu Yıldız',
       text: 'Gökyüzünde parlak bir kuyruklu yıldız belirdi. Kâhinler kıyametten, âlimler ise doğa yasalarından bahsediyor.',
@@ -505,6 +508,7 @@
     },
     {
       id: 'merchant_guild',
+      classic: true, // günümüz senaryosunda geçmez
       icon: '💰',
       title: 'Tüccar Loncası',
       text: 'Zengin tüccarlar, belirli mallar üzerinde tekel hakkı karşılığında hazineye büyük bir borç teklif ediyor.',
@@ -542,6 +546,7 @@
     },
     {
       id: 'peasant_revolt',
+      classic: true, // günümüz senaryosunda geçmez
       icon: '🔥',
       title: 'Halk Ayaklanması',
       text: 'Ağır vergiler ve huzursuzluk taşrada silahlı bir isyana dönüştü!',
@@ -566,6 +571,7 @@
     },
     {
       id: 'royal_wedding',
+      classic: true, // günümüz senaryosunda geçmez
       icon: '💍',
       title: 'Hanedan Evliliği',
       text: (game, ctx) => name(game, ctx.target) + ' sarayı, hanedanlarımız arasında bir evlilik teklif ediyor.',
@@ -577,6 +583,158 @@
       options: [
         { text: 'Evliliği onayla', effects: { gold: -30, opinionTarget: 35, stability: 3 } },
         { text: 'Reddet', effects: { opinionTarget: -10 } },
+      ],
+    },
+    // ============================================================ rastgele — günümüz
+    {
+      id: 'financial_crisis',
+      scenario: 'modern-2026',
+      icon: '📉',
+      title: 'Küresel Finans Krizi',
+      text: 'Büyük bir yatırım bankasının çöküşü piyasaları sarstı. Kur dalgalanıyor, faizler tırmanıyor.',
+      weight: 6,
+      options: [
+        { text: 'Uluslararası kredi anlaşması imzala', effects: { gold: 140, stability: -7 }, hint: 'Hazine rahatlar, kamuoyu tepkili' },
+        { text: 'Kemer sıkma: vergileri artır', effects: { tax: 5, stability: -5 } },
+        { text: 'Merkez bankasına para bastır', effects: { gold: 70, stability: -10 } },
+      ],
+    },
+    {
+      id: 'earthquake',
+      scenario: 'modern-2026',
+      icon: '🏚️',
+      title: 'Büyük Deprem',
+      text: 'Gece saatlerinde meydana gelen şiddetli deprem birçok şehri yıktı. Enkaz altında binlerce kişi var.',
+      weight: 4,
+      options: [
+        { text: 'Tüm devlet imkânlarını seferber et', effects: { gold: -90, stability: 5, manpower: -3 } },
+        { text: 'Uluslararası yardım çağrısı yap', effects: { gold: 30, stability: -3, opinionAll: 3 }, hint: 'Dünya dayanışma gösterir' },
+        { text: 'Yerel yönetimlere bırak', effects: { stability: -12, manpowerPct: -0.08 } },
+      ],
+    },
+    {
+      id: 'cyber_attack',
+      scenario: 'modern-2026',
+      icon: '💻',
+      title: 'Siber Saldırı',
+      text: (game, ctx) => 'Bankacılık ve enerji altyapımız ağır bir siber saldırıya uğradı. İzler ' + name(game, ctx.target) + ' bağlantılı bir gruba çıkıyor.',
+      weight: 6,
+      prepare: (game, id) => {
+        const list = game.aliveNations().filter((n) => n.id !== id && game.opinion(n.id, id) < 0 && game.militaryStrength(n.id) > game.militaryStrength(id) * 0.3);
+        return list.length ? { target: game.pick(list).id } : null;
+      },
+      options: [
+        { text: 'Karşı siber operasyon başlat', effects: { opinionTarget: -25, stability: 3 } },
+        { text: 'Siber güvenliğe yatırım yap', effects: { gold: -50, stability: 2 } },
+        { text: 'Olayı kamuoyundan gizle', effects: { stability: -4, gold: -20 } },
+      ],
+    },
+    {
+      id: 'ai_revolution',
+      scenario: 'modern-2026',
+      icon: '🤖',
+      title: 'Yapay Zekâ Devrimi',
+      text: 'Yeni nesil yapay zekâ sistemleri üretimi kökten değiştiriyor. Sendikalar işsizlikten, şirketler geride kalmaktan korkuyor.',
+      weight: 6,
+      once: true,
+      options: [
+        { text: 'Ulusal yapay zekâ seferberliği ilan et', effects: { gold: -90, devAll: 1, stability: -3 } },
+        { text: 'Sıkı düzenleme ve yeniden eğitim programı', effects: { gold: -40, capitalDev: 3, stability: 3 } },
+        { text: 'Gelişmeleri izle', effects: { stability: 1 } },
+      ],
+    },
+    {
+      id: 'energy_crisis',
+      scenario: 'modern-2026',
+      icon: '⚡',
+      title: 'Enerji Krizi',
+      text: 'Doğal gaz ve petrol fiyatları iki katına çıktı. Sanayi üretimi yavaşlıyor, faturalar kabarıyor.',
+      weight: 5,
+      options: [
+        { text: 'Yenilenebilir enerjiye büyük yatırım', effects: { gold: -80, capitalDev: 4, stability: -2 } },
+        { text: 'Halka enerji sübvansiyonu', effects: { gold: -60, stability: 5 } },
+        { text: 'Tasarruf tedbirleri uygula', effects: { stability: -7 } },
+      ],
+    },
+    {
+      id: 'snap_election',
+      scenario: 'modern-2026',
+      icon: '🗳️',
+      title: 'Erken Seçim Tartışması',
+      text: 'Muhalefet erken seçim çağrısını sokaklara taşıdı. Anketler kararsız.',
+      weight: 5,
+      options: [
+        {
+          text: 'Sandığa git',
+          random: [
+            { weight: 60, text: 'Hükümet güçlenerek yeniden seçildi!', effects: { stability: 12 } },
+            { weight: 40, text: 'Hükümet zor bir koalisyonla ayakta kaldı.', effects: { stability: -8, tax: -5 } },
+          ],
+        },
+        { text: 'Seçimi takvimine bırak', effects: { stability: -5 } },
+      ],
+    },
+    {
+      id: 'mass_protests',
+      scenario: 'modern-2026',
+      icon: '📢',
+      title: 'Kitlesel Protestolar',
+      text: 'Hayat pahalılığına karşı başlayan gösteriler büyük şehirlere yayıldı.',
+      weight: 9,
+      condition: (game, id) => game.nation(id).stability < 50,
+      options: [
+        { text: 'Diyalog ve vergi indirimi', effects: { tax: -5, stability: 7 } },
+        { text: 'Güvenlik güçleriyle dağıt', effects: { stability: 4, opinionAll: -3 } },
+        { text: 'Asgari ücrete zam yap', effects: { gold: -60, stability: 8 } },
+      ],
+    },
+    {
+      id: 'pandemic',
+      scenario: 'modern-2026',
+      icon: '🦠',
+      title: 'Yeni Bir Salgın',
+      text: 'Hızla yayılan yeni bir solunum yolu virüsü hastaneleri zorluyor.',
+      weight: 3,
+      once: true,
+      options: [
+        { text: 'Sokağa çıkma kısıtlaması ve aşı programı', effects: { gold: -70, stability: -2 } },
+        { text: 'Ekonomiyi açık tut', effects: { manpowerPct: -0.1, stability: -8 } },
+      ],
+    },
+    {
+      id: 'chip_factory',
+      scenario: 'modern-2026',
+      icon: '🔬',
+      title: 'Yarı İletken Yatırımı',
+      text: 'Dünyanın önde gelen çip üreticilerinden biri ülkemizde dev bir fabrika kurmak istiyor; karşılığında vergi muafiyeti talep ediyor.',
+      weight: 5,
+      once: true,
+      options: [
+        { text: 'Teşvik ver ve kabul et', effects: { gold: -40, capitalDev: 5, opinionAll: 2 } },
+        { text: 'Muafiyet olmadan kabul et', random: [
+          { weight: 45, text: 'Şirket şartları kabul etti; fabrika yükseliyor.', effects: { capitalDev: 4 } },
+          { weight: 55, text: 'Şirket yatırımı komşu ülkeye kaydırdı.', effects: { stability: -2 } },
+        ] },
+      ],
+    },
+    {
+      id: 'space_program',
+      scenario: 'modern-2026',
+      icon: '🚀',
+      title: 'Uzay Programı',
+      text: 'Bilim insanları kendi uydumuzu yörüngeye oturtacak milli bir roket programı öneriyor.',
+      weight: 3,
+      once: true,
+      options: [
+        {
+          text: 'Programı finanse et',
+          effects: { gold: -100 },
+          random: [
+            { weight: 65, text: 'Fırlatma başarılı! Ülke gururla izledi.', effects: { stability: 9, opinionAll: 3 } },
+            { weight: 35, text: 'Roket kalkıştan kısa süre sonra infilak etti.', effects: { stability: -4 } },
+          ],
+        },
+        { text: 'Önce ekonomi', effects: { stability: 1 } },
       ],
     },
     // ============================================================ rastgele — döneme özgü
@@ -727,6 +885,7 @@
     for (const ev of EVENTS) {
       if (ev.date || ev.dynamic) continue;
       if (ev.scenario && ev.scenario !== st.scenarioId) continue;
+      if (ev.classic && game.scenario.year >= 2000) continue;
       const last = st.firedEvents[ev.id];
       if (last !== undefined && (ev.once || st.day - last < REPEAT_COOLDOWN)) continue;
       if (ev.condition && !ev.condition(game, id, {})) continue;

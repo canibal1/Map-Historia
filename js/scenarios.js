@@ -199,6 +199,7 @@
       endDate: '2036-01-01',
       seed: 2026,
       maxAllies: 40,
+      defensivePacts: true, // müttefikler saldırı savaşlarına yalnızca hedefe düşmansa katılır
       defaultLeader: 'Hükümet',
       description:
         "Büyük güçler arasındaki rekabet sertleşiyor, Ukrayna'da savaş sürüyor, Orta Doğu gergin. " +
