@@ -15,6 +15,7 @@ Kurulum gerekmez; tüm kod saf HTML/CSS/JavaScript'tir.
 # index.html dosyasını doğrudan tarayıcıda açabilirsiniz, ya da:
 npm start          # http://localhost:8080
 npm test           # kabul kriterleri testleri (Node 18+)
+npm run build      # dist/map-historia.html: tek dosyalık, paylaşılabilir sürüm
 ```
 
 **Kısayollar:** `Boşluk` duraklat/devam · `1` `2` `3` hız · `Esc` ordu seçimini bırak · fare tekerleği yakınlaştır · sürükle kaydır.

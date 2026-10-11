@@ -106,9 +106,9 @@
       this.renderPick();
     }
 
-    continueSaved() {
+    continueSaved(json = storage.get(SAVE_KEY)) {
       try {
-        this._setGame(MH.Game.load(storage.get(SAVE_KEY)));
+        this._setGame(MH.Game.load(json));
       } catch (err) {
         this.toast('Kayıt yüklenemedi: ' + err.message, [], 'bad');
         return;
@@ -1089,7 +1089,26 @@
   }
 
   MH.App = App;
+
+  /*
+   * Açılış. Sayfa claude.ai üzerinde yayınlandığında görüntüleyici `window.claude.hot`
+   * kancasını sağlar: sayfa güncellenirse süren oyun anlık görüntüden kaldığı yerden devam eder.
+   */
+  function boot() {
+    const hot = typeof window !== 'undefined' ? window.claude?.hot : null;
+    const start = (data) => {
+      MH.app = new App();
+      if (data && data.save) MH.app.continueSaved(data.save);
+    };
+    hot?.snapshot?.(() => {
+      const app = MH.app;
+      return app?.game && app.mode === 'play' && !app.game.state.gameOver ? { save: app.game.serialize() } : {};
+    });
+    if (hot?.ready) hot.ready(start);
+    else start(hot?.data ?? {});
+  }
   if (typeof document !== 'undefined') {
-    document.addEventListener('DOMContentLoaded', () => { MH.app = new App(); });
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+    else boot();
   }
 })((globalThis.MH = globalThis.MH || {}));
