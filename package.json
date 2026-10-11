@@ -1,0 +1,11 @@
+{
+  "name": "map-historia",
+  "version": "0.1.0",
+  "description": "Tarihi bir ulus seçip alternatif tarih senaryolarında diplomatik, askeri ve ekonomik kararlar alınan büyük strateji oyunu.",
+  "private": true,
+  "scripts": {
+    "start": "npx --yes serve -l 8080 .",
+    "test": "node --test tests/*.test.js"
+  },
+  "license": "MIT"
+}
